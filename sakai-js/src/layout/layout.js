@@ -1,5 +1,3 @@
-import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useEventListener, useMountEffect, useUnmountEffect } from 'primereact/hooks';
 import { classNames, DomHandler } from 'primereact/utils';
 import React, { useContext, useEffect, useRef } from 'react';
@@ -9,13 +7,17 @@ import AppTopbar from './AppTopbar';
 import AppConfig from './AppConfig';
 import { LayoutContext } from './context/layoutcontext';
 import PrimeReact from 'primereact/api';
-
+import {Link} from 'react-router-dom';
+import { BrowserRouter, Route, Routes} from 'react-router-dom';
+import Crud from '../pages/pages/crud';
+import CustomerTable from '../components/CustomerTable';
+import SupplierTable from '../components/SupplierTable';
 const Layout = (props) => {
+    
     const { layoutConfig, layoutState, setLayoutState } = useContext(LayoutContext);
     const topbarRef = useRef(null);
     const sidebarRef = useRef(null);
 
-    const router = useRouter();
     const [bindMenuOutsideClickListener, unbindMenuOutsideClickListener] = useEventListener({
         type: 'click',
         listener: (event) => {
@@ -80,12 +82,6 @@ const Layout = (props) => {
         }
     }, [layoutState.profileSidebarVisible]);
 
-    useEffect(() => {
-        router.events.on('routeChangeComplete', () => {
-            hideMenu();
-            hideProfileMenu();
-        });
-    }, []);
 
     useUnmountEffect(() => {
         unbindMenuOutsideClickListener();
@@ -104,33 +100,22 @@ const Layout = (props) => {
 
     return (
         <React.Fragment>
-            <Head>
-                <title>Sakai by PrimeReact | Free Admin Template for NextJS</title>
-                <meta charSet="UTF-8" />
-                <meta name="description" content="The ultimate collection of design-agnostic, flexible and accessible React UI Components." />
-                <meta name="robots" content="index, follow" />
-                <meta name="viewport" content="initial-scale=1, width=device-width" />
-                <meta property="og:type" content="website"></meta>
-                <meta property="og:title" content="Sakai by PrimeReact | Free Admin Template for NextJS"></meta>
-                <meta property="og:url" content="https://www.primefaces.org/sakai-react"></meta>
-                <meta property="og:description" content="The ultimate collection of design-agnostic, flexible and accessible React UI Components." />
-                <meta property="og:image" content="https://www.primefaces.org/static/social/sakai-nextjs.png"></meta>
-                <meta property="og:ttl" content="604800"></meta>
-                <link rel="icon" href={`/favicon.ico`} type="image/x-icon"></link>
-            </Head>
-
-            <div className={containerClass}>
-                <AppTopbar ref={topbarRef} />
-                <div ref={sidebarRef} className="layout-sidebar">
-                    <AppSidebar />
-                </div>
-                <div className="layout-main-container">
-                    <div className="layout-main">{props.children}</div>
-                    <AppFooter />
-                </div>
-                <AppConfig />
-                <div className="layout-mask"></div>
-            </div>
+            <BrowserRouter>
+                    <div className={containerClass}>
+                        <AppTopbar ref={topbarRef} />
+                        <div ref={sidebarRef} className="layout-sidebar">
+                            <AppSidebar />
+                        </div>
+                        <div className="layout-main-container">                       
+                            <Routes>
+                                    <Route path="/customers" element={<CustomerTable/>}></Route>
+                                    <Route path="/suppliers" element={<SupplierTable/>}></Route>
+                            </Routes>
+                        </div>
+                        <div className="layout-mask"></div>
+                    </div>
+            </BrowserRouter>
+               
         </React.Fragment>
     );
 };

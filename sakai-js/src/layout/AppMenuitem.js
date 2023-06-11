@@ -1,21 +1,18 @@
-import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { Ripple } from 'primereact/ripple';
 import { classNames } from 'primereact/utils';
 import React, { useEffect, useContext } from 'react';
 import { CSSTransition } from 'react-transition-group';
 import { MenuContext } from './context/menucontext';
-
+import {Link} from 'react-router-dom';
 const AppMenuitem = (props) => {
     const { activeMenu, setActiveMenu } = useContext(MenuContext);
-    const router = useRouter();
     const item = props.item;
     const key = props.parentKey ? props.parentKey + '-' + props.index : String(props.index);
-    const isActiveRoute = item.to && router.pathname === item.to;
+    const isActiveRoute = false; //item.to && router.pathname === item.to; 
     const active = activeMenu === key || activeMenu.startsWith(key + '-');
 
     useEffect(() => {
-        if (item.to && router.pathname === item.to) {
+        if (item.to /* && router.pathname === item.to */) {
             setActiveMenu(key);
         }
 
@@ -25,10 +22,10 @@ const AppMenuitem = (props) => {
             }
         };
 
-        router.events.on('routeChangeComplete', onRouteChange);
+       // router.events.on('routeChangeComplete', onRouteChange);
 
         return () => {
-            router.events.off('routeChangeComplete', onRouteChange);
+          //  router.events.off('routeChangeComplete', onRouteChange);
         };
     }, []);
 
@@ -72,11 +69,13 @@ const AppMenuitem = (props) => {
             ) : null}
 
             {item.to && !item.items && item.visible !== false ? (
-                <Link href={item.to} replace={item.replaceUrl} target={item.target} onClick={(e) => itemClick(e)} className={classNames(item.class, 'p-ripple', { 'active-route': isActiveRoute })} tabIndex={0}>
+                <Link to={item.to} replace={item.replaceUrl} target={item.target} onClick={(e) => itemClick(e)} className={classNames(item.class, 'p-ripple', { 'active-route': isActiveRoute })} tabIndex={0}>
+                <div>
                     <i className={classNames('layout-menuitem-icon', item.icon)}></i>
                     <span className="layout-menuitem-text">{item.label}</span>
                     {item.items && <i className="pi pi-fw pi-angle-down layout-submenu-toggler"></i>}
                     <Ripple />
+                    </div>
                 </Link>
             ) : null}
 
