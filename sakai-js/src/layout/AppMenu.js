@@ -16,7 +16,7 @@ const AppMenu = () => {
             items: [
                 { label: 'Customer Management', icon: 'pi pi-fw pi-id-card', to: '/customers' },
                 { label: 'Supplier Management', icon: 'pi pi-fw pi-check-square', to: '/suppliers' },
-                { label: 'Float Label', icon: 'pi pi-fw pi-bookmark', to: '/uikit/floatlabel' },
+                { label: 'Contact Person View', icon: 'pi pi-fw pi-bookmark', to: '/contactpersons' },
                 { label: 'Invalid State', icon: 'pi pi-fw pi-exclamation-circle', to: '/uikit/invalidstate' },
                 { label: 'Button', icon: 'pi pi-fw pi-mobile', to: '/uikit/button', class: 'rotated-icon' },
                 { label: 'Table', icon: 'pi pi-fw pi-table', to: '/uikit/table' },

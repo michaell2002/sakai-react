@@ -1,25 +1,35 @@
 import {Link} from 'react-router-dom';
 import { classNames } from 'primereact/utils';
-import React, { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useContext, useImperativeHandle, useRef, useState } from 'react';
 import { LayoutContext } from './context/layoutcontext';
+import { OverlayPanel } from 'primereact/overlaypanel';
+import { Button } from 'primereact/button';
+import ProfilePanel from '../components/ProfilePanel'; 
+import ImageContext from '../layout/context/imagecontext';
+import CustomImage from '../components/CustomImage';
 
 const AppTopbar = forwardRef((props, ref) => {
+    const { contextValue, updateContextValue, companyName } = useContext(ImageContext);
     const { layoutConfig, layoutState, onMenuToggle, showProfileSidebar } = useContext(LayoutContext);
     const menubuttonRef = useRef(null);
     const topbarmenuRef = useRef(null);
     const topbarmenubuttonRef = useRef(null);
-    
+    const op = useRef(null);
+    const [activateFlag, setActivateFlag] = useState(false);
     useImperativeHandle(ref, () => ({
         menubutton: menubuttonRef.current,
         topbarmenu: topbarmenuRef.current,
         topbarmenubutton: topbarmenubuttonRef.current
     }));
-
+    const handleProfileClick = (e) => {
+        op.current.toggle(e);
+        setActivateFlag(prev => !prev)
+    };
     return (
         <div className="layout-topbar">
                 <div className="layout-topbar-logo">
-                    <img src={`/layout/images/logo-${layoutConfig.colorScheme !== 'light' ? 'white' : 'dark'}.svg`} width="47.22px" height={'35px'} widt={'true'} alt="logo" />
-                    <span>Palmas Entraco</span>
+                    <CustomImage width={2.5} height={3}></CustomImage>
+                    <span style={{marginLeft:"1rem"}}>{companyName}</span>
                 </div>
 
             <button ref={menubuttonRef} type="button" className="p-link layout-menu-button layout-topbar-button" onClick={onMenuToggle}>
@@ -35,10 +45,12 @@ const AppTopbar = forwardRef((props, ref) => {
                     <i className="pi pi-calendar"></i>
                     <span>Calendar</span>
                 </button>
-                <button type="button" className="p-link layout-topbar-button">
+                <button type="button" className="p-link layout-topbar-button" onClick={handleProfileClick}>
                     <i className="pi pi-user"></i>
                     <span>Profile</span>
                 </button>
+                <ProfilePanel op={op} activateFlag={activateFlag}>
+                </ProfilePanel>
                     <button type="button" className="p-link layout-topbar-button">
                         <i className="pi pi-cog"></i>
                         <span>Settings</span>

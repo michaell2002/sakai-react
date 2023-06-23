@@ -1,6 +1,6 @@
-const SERVER_PREFIX = "http://localhost:8080";
-export function fetchSuppliers ( lazyState, searchValue) {
-    return fetch(`${SERVER_PREFIX}/supplier/query?searchValue=${searchValue}`, {
+import SERVER_PREFIX from './Domain';
+export function fetchSuppliers ( lazyState, searchValue, filter) {
+    return fetch(`${SERVER_PREFIX}/supplier/query?searchValue=${searchValue}&filter=${filter}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -8,10 +8,11 @@ export function fetchSuppliers ( lazyState, searchValue) {
         body: JSON.stringify(lazyState)
       })
         .then((response) => {
+          console.log(response);
           if (response.ok) {
             return response.json();
           } else if (response.status == 401 || response.status == 403) {
-            console.log("should log off");
+            throw new Error("should log off");
           } else {
             throw new Error(`Failed to fetch suppliers: ${response.status}`);
           }
@@ -29,9 +30,9 @@ export function fetchSuppliers ( lazyState, searchValue) {
       })
         .then((response) => {
           if (response.ok) {
-            return response.json(); //only do this if you return an object
+            return response.json();
           } else if (response.status == 401 || response.status == 403) {
-            console.log("should log off");
+            throw new Error("should log off");
           }
           else {
             throw new Error(`Failed to create supplier: ${response.status}`);
@@ -50,7 +51,7 @@ export function fetchSuppliers ( lazyState, searchValue) {
         .then((response) => {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
-            console.log("should log off");
+            throw new Error("should log off");
           }
           else {
             throw new Error(`Failed to update supplier: ${response.status}`);
@@ -68,7 +69,7 @@ export function fetchSuppliers ( lazyState, searchValue) {
       .then((response) => {
         if (response.ok) {
         } else if (response.status == 401 || response.status == 403) {
-          console.log("should log off");
+          throw new Error("should log off");
         }
         else {
           throw new Error(`Failed to delete supplier: ${response.status}`);

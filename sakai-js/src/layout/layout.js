@@ -1,6 +1,6 @@
 import { useEventListener, useMountEffect, useUnmountEffect } from 'primereact/hooks';
 import { classNames, DomHandler } from 'primereact/utils';
-import React, { useContext, useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef} from 'react';
 import AppFooter from './AppFooter';
 import AppSidebar from './AppSidebar';
 import AppTopbar from './AppTopbar';
@@ -12,6 +12,7 @@ import { BrowserRouter, Route, Routes} from 'react-router-dom';
 import Crud from '../pages/pages/crud';
 import CustomerTable from '../components/CustomerTable';
 import SupplierTable from '../components/SupplierTable';
+import ContactPersonTable from '../components/ContactPersonTable';
 const Layout = (props) => {
     
     const { layoutConfig, layoutState, setLayoutState } = useContext(LayoutContext);
@@ -108,8 +109,9 @@ const Layout = (props) => {
                         </div>
                         <div className="layout-main-container">                       
                             <Routes>
-                                    <Route path="/customers" element={<CustomerTable/>}></Route>
-                                    <Route path="/suppliers" element={<SupplierTable/>}></Route>
+                                   <Route path="/customers" element={<CustomerTable/>}></Route>
+                                   <Route path="/suppliers" element={<SupplierTable/>}></Route> 
+                                   <Route path="/contactpersons" element={<ContactPersonTable/>}></Route> 
                             </Routes>
                         </div>
                         <div className="layout-mask"></div>

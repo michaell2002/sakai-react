@@ -13,7 +13,8 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { RadioButton } from 'primereact/radiobutton';
 import { InputNumber } from 'primereact/inputnumber';
 import { Dropdown } from 'primereact/dropdown';
-
+import { TabView, TabPanel } from 'primereact/tabview';
+import {ToggleButton} from 'primereact/togglebutton';
 export default function CustomerTable() {
   const emptyContactPerson = {
     id : null,
@@ -21,11 +22,13 @@ export default function CustomerTable() {
     email : "",
     telephoneNumber : "",
     mobilePhoneNumber : "",
-    client : null
+    status : true,
+    client : null,
+    tempId : null
   }
   const [clientType, setClientType] = useState({name : 'CONTRACTOR', code: 'CONTRACTOR'});
-  const [selectedCity, setSelectedCity] = useState("");
-
+  const [selectedProvince, setSelectedProvince] = useState({name : 'Jakarta', code :  'Jakarta'});
+  let counterCP = 0;
   const [submitted, setSubmitted] = useState(false);
   const [searching, setSearching] = useState(false);
   const emptyCustomer = {
@@ -48,7 +51,7 @@ export default function CustomerTable() {
     contactPersons : []
 };
 
-  const [customer, setCustomer] = useState(emptyCustomer);
+  const [customer, setCustomer] = useState({...emptyCustomer});
   const toast = useRef(null);
   const [searchValueToPass, setSearchValueToPass] = useState("");
   const [searchValue, setSearchValue] = useState("");
@@ -57,7 +60,7 @@ export default function CustomerTable() {
   const [customers, setCustomers] = useState([]);
   const [addContactPerson, setAddContactPerson] = useState(false); 
   const [selectedCustomers, setSelectedCustomers] = useState([]);
-    const cities = [
+    const provinces = [
       { name: 'Aceh', code: 'Aceh' },
       { name: 'Bali', code: 'Bali' },
       { name: 'Bangka Belitung', code: 'Bangka Belitung' },
@@ -98,7 +101,24 @@ export default function CustomerTable() {
       {name : 'PLANTATION', code: 'PLANTATION'},
       {name : 'OTHERS', code: 'OTHERS'}
     ]
-  
+    const [selectedFilter, setFilter] = useState({ name: 'All (complete words only)', code: 'all' });
+    const filters = [
+        { name: 'All (complete words only)', code: 'all' },
+        { name: 'Client Type', code: 'clientType' },
+        { name: 'Group', code: 'groupName' },
+        { name: 'Name', code: 'name' },
+        { name: 'Email', code: 'email' },
+        { name: 'Phone', code: 'phone' },
+        { name: 'Building', code: 'building' },
+        { name: 'Address 1', code: 'address1' },
+        { name: 'Address 2', code: 'address2' },
+        { name: 'Kecamatan', code: 'neighborhood' },
+        { name: 'Kelurahan', code: 'district' },
+        { name: 'Kabupaten/Kota ', code: 'regencyCity' },
+        { name: 'Province', code: 'province' },
+        { name: 'Postal Code', code: 'postalCode' }
+    ];
+
         const [lazyState, setlazyState] = useState({
             first: 0,
             rows: 10,
@@ -125,7 +145,8 @@ export default function CustomerTable() {
     const [deleteCustomerDialog, setDeleteCustomerDialog] = useState(false);
     const [deleteCustomersDialog, setDeleteCustomersDialog] = useState(false);
     const openNew = () => {
-        setCustomer(prev => emptyCustomer);
+        const _emptyCustomer = {...emptyCustomer};
+        setCustomer(prev => _emptyCustomer);
         setSubmitted(prev => false);
         setCustomerDialog(prev => true);
     };
@@ -147,13 +168,33 @@ export default function CustomerTable() {
     const predicate = () => {
             if (customer.name.length < 1 || customer.name.length > 256) {
               return false;
+            } else if ((customer.email && customer.email.length > 250) || (customer.email && !emailPattern.test(customer.email))) {
+              return false;
+            } else if ((customer.phone && customer.phone.length > 20) || (customer.phone && !phonePattern.test(customer.phone))) {
+              return false;
+            } else if (customer.building && customer.building.length > 250) {
+              return false;
+            } else if (customer.address1 && customer.address1.length > 400) {
+              return false;
+            } else if (customer.address2 && customer.address2.length > 400) {
+              return false;
+            } else if (customer.neighborhood && customer.neighborhood.length > 250) {
+              return false;
+            } else if (customer.district && customer.district.length > 250) {
+              return false;
+            } else if (customer.regencyCity && customer.regencyCity.length > 250) {
+              return false;
+            } else if (customer.postalCode && customer.postalCode.length > 250) {
+              return false;
+            } else if (customer.contactPersons.filter(cp => cp.name.length < 1).length > 0) {
+              return false;
             }
             return true;
           };
   
     const savecustomer = () => {
         setSubmitted(prev => true);
-        console.log("PREDICATE" + predicate());
+        //console.log("PREDICATE" + predicate());
         if (predicate()) {
             let _customers = [...customers];
             let _customer = { ...customer};
@@ -164,10 +205,11 @@ export default function CustomerTable() {
                     setCustomers(prev => _customers);
                     toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customer Updated', life: 3000 });
                 }).catch(error => {
-                  toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error in Updating', life: 3000 });
+                  toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
                 })
                 setSelectedCustomers(prev => []);
-                setCustomer(prev => emptyCustomer);
+                const _emptyCustomer = {...emptyCustomer};
+                setCustomer(prev => _emptyCustomer);
             } else {
                  createClient(_customer).then(obj => {
                     _customer.id = obj.id;
@@ -175,7 +217,7 @@ export default function CustomerTable() {
                     setCustomers(prev => _customers);
                   toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customer Created', life: 3000 });
                  }).catch(error => {
-                  toast.current.show({ severity: 'error', summary: 'Error', detail: 'Customer Creation Failed', life: 3000 });
+                  toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
                  });
             }
             setCustomerDialog(prev => false);
@@ -224,7 +266,7 @@ export default function CustomerTable() {
     };
     const onDeleteContactPerson = (idx) =>{
       setCustomer(prev => {
-        const _customer = {...prev};
+        const _customer = JSON.parse(JSON.stringify(prev));
         _customer.contactPersons.splice(idx, 1);
         return _customer;
       })
@@ -238,10 +280,11 @@ export default function CustomerTable() {
           setDeleteCustomersDialog(prev => false);
           setSelectedCustomers(prev => []);
           toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customers Deleted', life: 3000 });
+          loadLazyData();
         }).catch(error => {
-          toast.current.show({ severity: 'error', summary: 'Error', detail: 'Error in deleting customers', life: 3000 });
+          toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+          loadLazyData();
         })
-        loadLazyData();
     };
     const customerDialogFooter = (
         <React.Fragment>
@@ -276,19 +319,25 @@ export default function CustomerTable() {
     useEffect(() => {
         loadLazyData();
     }, [searchValueToPass, lazyState])
-
+    useEffect(() => {
+      if (searchValueToPass != "") {
+        loadLazyData();
+      }
+    }, [selectedFilter]);
+    
     const loadLazyData = () => {
         setLoading(prev => true);
         //console.log(JSON.stringify(lazyState));
-        fetchClients(lazyState, searchValueToPass).then((data) => {
+        fetchClients(lazyState, searchValueToPass, selectedFilter.code).then((data) => {
             if (data != undefined && data != null) {
-                setTotalRecords(data.totalRecords);
-                setCustomers(data.customers);
+                setTotalRecords(prev => data.totalRecords);
+                setCustomers(prev => data.customers);
             } else {
-                console.log("error");
-                toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load customers', life: 3000 });
+                toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
             }
             setLoading(prev => false);
+        }).catch(error => {
+            toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
         });
     };
 
@@ -308,7 +357,7 @@ export default function CustomerTable() {
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
           // Perform the action you want to execute on Enter key press
-          if (searchValue.length < 4) {
+          if (searchValue.length < 4 && selectedFilter.code == "all") {
             toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words with 3 or less characters would not activate filter', life: 3000 });
           }
           setSearchValueToPass(prev => searchValue);
@@ -325,21 +374,28 @@ export default function CustomerTable() {
     };
       const handleAddPerson = (e) => {
         setCustomer(prev =>  {
-          const _customer = {...prev};
-          _customer.contactPersons = _customer.contactPersons.concat({...emptyContactPerson});
+          const _customer =  JSON.parse(JSON.stringify(prev));
+          const _emptyContactPerson = {...emptyContactPerson};
+          _emptyContactPerson.tempId = counterCP;
+          counterCP++;
+          _customer.contactPersons = _customer.contactPersons.concat({..._emptyContactPerson});
           return _customer;
         });
-        //WORK ON THIS, the async behavior
       }
+      const handleFilterChange = (e) => {
+        setFilter(prev => e.value);
+      };
     const renderHeader = () => {
 
         return ( <>
             <span className="p-input-icon-left">
                 <div className="flex flex-row gap-2">
                     <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Customers" style={{width:"30vw"}} />
+                    <Dropdown value={selectedFilter} onChange={handleFilterChange} options={filters} optionLabel="name" 
+                        placeholder="Select Filter" className="w-full md:w-14rem" />
                     <Button onClick={e => {
                       setSearchValueToPass(prev => searchValue);
-                      if (searchValue.length < 4) {
+                      if (searchValue.length < 4 && selectedFilter.code == "all") {
                         toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words with 3 or less characters would not activate filter', life: 3000 });
                       }
                     }} icon="pi pi-search" rounded outlined />
@@ -350,7 +406,7 @@ export default function CustomerTable() {
     };
     const onInputCPChange = (index, property, value) => {
       setCustomer((prev) => {
-        const _customer = {...prev};
+        const _customer =  JSON.parse(JSON.stringify(prev));
         _customer.contactPersons[index][property] = value;
         return _customer;
       });
@@ -358,18 +414,45 @@ export default function CustomerTable() {
     const handleClientType = (e) => {
       setClientType(prev => e.target.value);
       const clientType = (e.target) ? e.target.value.name : '';
-      const _customer = {...customer};
+      const _customer =  JSON.parse(JSON.stringify(prev));
       _customer.clientType = clientType;
       setCustomer(prev => _customer);
     }
+
+    const handleChangeProvince = (e) => {
+      setSelectedProvince(prev => e.target.value);
+      const _province = (e.target) ? e.target.value.name : '';
+      const _customer =  JSON.parse(JSON.stringify(prev));
+      _customer.province = _province;
+      setCustomer(prev => _customer);
+    }
     const handleEdit = (rd) => {
-      const _rd = {...rd};
+      const _rd = JSON.parse(JSON.stringify(rd));
+      const mappedArray = [];
+      for (const c of _rd.contactPersons) {
+        mappedArray.push({...c, tempId : counterCP});
+        counterCP++;
+      }
+      _rd.contactPersons = mappedArray;
       setCustomer(prev => _rd);
       setSelectedCustomers(prev => []);
+      for (const province of provinces) {
+        if (province.name == _rd.province) {
+          setSelectedProvince(prev => province);
+        }
+      }
       setSubmitted(prev => false);
       setAddContactPerson(prev => rd.contactPersons.length > 0 ? true : false);
       setCustomerDialog(prev => true);
     };
+
+    const handleToggleButton = (e, index, property) => {
+      setCustomer((prev) => {
+        const _customer =  JSON.parse(JSON.stringify(prev));
+        _customer.contactPersons[index]['status'] = e.value;
+        return _customer;
+      });
+    }
     /*
     const openUpdate = () => {
       if (selectedCustomers.length == 1) {
@@ -388,8 +471,7 @@ export default function CustomerTable() {
     return (
         <div>
               <Toast ref={toast} />
-              <div className="card">
-                  <Toolbar left={renderHeader} right={rightToolbarTemplate}></Toolbar>
+                  <Toolbar start={renderHeader} end={rightToolbarTemplate}></Toolbar>
                   <DataTable value={customers} lazy dataKey="id" paginator /*filters={lazyState.filters}  onFilter={onFilter} filterDisplay="row"*/
                           first={lazyState.first} rows={lazyState.rows} totalRecords={totalRecords} onPage={onPage} removableSort
                           onSort={onSort} sortField={lazyState.sortField} sortOrder={lazyState.sortOrder} rowClassName="" metaKeySelection={false}
@@ -398,35 +480,38 @@ export default function CustomerTable() {
                           <Column
                             field="edit"
                             body={(rowData) => (
-                              <i className="pi pi-pencil" style={{ cursor: 'pointer' }} onClick={() => handleEdit(rowData)} />
+                             <div className=" "onClick={() => handleEdit(rowData)}>
+                                  <i className="pi pi-id-card" style={{ cursor: 'pointer', fontSize: '1.3rem'}} onClick={() => handleEdit(rowData)} /> 
+                             </div>
                             )}
                           />
-                          <Column field="clientType" header="Tipe" sortable/>
+                          <Column field="clientType" header="Client Type" sortable/>
                           <Column field="groupName" header="Group" sortable />
-                          <Column field="name" header="Nama" sortable/>
+                          <Column field="name" header="Name" sortable/>
                           <Column field="email" header="Email" sortable/>
-                          <Column field="phone" header="Telepon" sortable/>
-                          <Column field="building" header="Gedung" sortable/>
-                          <Column field="address1" header="Alamat 1" sortable/>
-                          <Column field="address2" header="Alamat 2" sortable />
+                          <Column field="phone" header="Phone" sortable/>
+                          <Column field="building" header="Building" sortable/>
+                          <Column field="address1" header="Address 1" style={{ minWidth: '20rem' }} sortable/>
+                          <Column field="address2" header="Address 2" style={{ minWidth: '20rem' }}sortable />
                           <Column field="neighborhood" header="Kecamatan" sortable/>
                           <Column field="district" header="Kelurahan" sortable />
                           <Column field="regencyCity" header="Kabupaten/Kota" sortable  />
-                          <Column field="province" header="Provinsi" sortable  />
-                          <Column field="postalCode" header   ="Kode Pos" sortable/>
+                          <Column field="province" header="Province" sortable  />
+                          <Column field="postalCode" header ="Postal Code" sortable/>
                   </DataTable>
-              </div>
       <Dialog visible={customerDialog} style={{ width: '75vw' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Customer" modal className="p-fluid" footer={customerDialogFooter} onHide={hideDialog}>
+      
+    <TabView>
+      <TabPanel header="Main">
       <div className="field ml-4 mr-4">
         <label htmlFor="name" className="font-bold">
-          Nama*
+          Name*
         </label>
         <InputText
           id="name"
           value={customer.name}
           onChange={(e) => onInputChange(e, 'name')}
           required
-          autoFocus
           className={{ 'p-invalid': (submitted && !customer.name) || (submitted && customer.name && customer.name.length > 256 ) }}
         />
         {submitted && !customer.name && <small className="p-error">Name is required.</small>}
@@ -449,7 +534,7 @@ export default function CustomerTable() {
           id="email"
           value={customer.email}
           onChange={(e) => onInputChange(e, 'email')}
-          className={{ 'p-invalid':(submitted && customer.email && customer.email.length > 250) || (submitted && customer.email && !emailPattern.test(customer.email))}}
+          className={{ 'p-invalid': (submitted && customer.email && customer.email.length > 250) || (submitted && customer.email && !emailPattern.test(customer.email))}}
         />
         {submitted && customer.email && customer.email.length > 250 && (
           <small className="p-error">Email is too long.</small>
@@ -459,7 +544,7 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="phone" className="font-bold">
-          No. Telefon/HP
+          Phone
         </label>
         <InputText
           id="phone"
@@ -476,7 +561,7 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="building" className="font-bold">
-          Gedung
+          Building
         </label>
         <InputText
           id="building"
@@ -491,7 +576,7 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="address1" className="font-bold">
-          Alamat 1
+          Address 1
         </label>
         <InputText
           id="address1"
@@ -506,7 +591,7 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="address2" className="font-bold">
-          Alamat 2
+          Address 2
         </label>
         <InputText
           id="address2"
@@ -566,15 +651,15 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="province" className="font-bold">
-          Provinsi
+          Province
         </label>
-        <Dropdown value={selectedCity} onChange={(e) => setSelectedCity(e.value)} options={cities} optionLabel="name" 
+        <Dropdown value={selectedProvince} onChange={handleChangeProvince} options={provinces} optionLabel="name" 
                 placeholder="Pilih Provinsi" className="w-full md:w-14rem" />
       </div>
 
       <div className="field ml-4 mr-4">
         <label htmlFor="postalCode" className="font-bold">
-          Kode Pos
+          Postal Code
         </label>
         <InputText
           id="postalCode"
@@ -589,7 +674,7 @@ export default function CustomerTable() {
 
       <div className="field ml-4 mr-4">
         <label htmlFor="description" className="font-bold">
-          Keterangan
+          Description
         </label>
         <InputTextarea
           id="description"
@@ -602,24 +687,26 @@ export default function CustomerTable() {
           <small className="p-error">Description is too long.</small>
         )}
       </div>
+    </TabPanel>
 
+    <TabPanel header = "Contact Persons">
       {addContactPerson && 
           customer.contactPersons.map((cp, index) => {
             return  (
-            <div className='card' id={index}> 
+            <div className='card' key={cp.tempId}> 
               <div className="field grid align-items-center justify-content-center">
                   <div className="col-11 mb-5">
                       <i className="pi pi-user mr-4"></i>
                       <b>Contact Person {index + 1} Data</b>
                   </div>
                   <div className="col-1 mb-5">
-                    <Button icon="pi pi-times" rounded outlined severity="danger" aria-label="Cancel" onClick={onDeleteContactPerson} />
+                    <Button icon="pi pi-times" rounded outlined severity="danger" aria-label="Cancel" onClick={(e) => onDeleteContactPerson(index)} />
                   </div>
                         <div className="col-3"></div>
                         <div className="col-6">
                               <div className="field">
                               <label htmlFor="name" className="font-bold">
-                                Nama*
+                                Name*
                               </label>
                               <InputText
                                 id="name"
@@ -657,7 +744,7 @@ export default function CustomerTable() {
                       <div className="col-6">
                         <div className="field">
                           <label htmlFor="telephoneNumber" className="font-bold">
-                            No. Telepon
+                            Telephone
                           </label>
                           <InputText
                             id="telephoneNumber"
@@ -675,7 +762,7 @@ export default function CustomerTable() {
                       <div className="col-6">
                         <div className="field">
                           <label htmlFor="mobilePhoneNumber" className="font-bold">
-                            No. HP
+                            Mobile Phone
                           </label>
                           <InputText
                             id="mobilePhoneNumber"
@@ -686,6 +773,14 @@ export default function CustomerTable() {
                           {submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 && (
                             <small className="p-error">Phone Number is too long.</small>
                           )}
+                        </div>
+                      </div> 
+                      <div className="col-3"></div>
+                      <div className="col-3"></div>
+                      <div className="col-6">
+                        <span className="font-bold">Status: </span>
+                        <div className="field align-content-center justify-content-center text-center">
+                          <ToggleButton onLabel="Active" offLabel="Inactive" checked={cp.status} onChange={(e) => handleToggleButton(e, index)} className="w-15rem h-3rem" />
                         </div>
                       </div> 
                       <div className="col-3"></div>
@@ -704,8 +799,13 @@ export default function CustomerTable() {
                       <Button label="Add Contact Person" icon="pi pi-plus" outlined onClick={handleAddPerson} />
                   </div>
               </div>
-      </div> 
+          </div> 
+
+      </TabPanel>
+          
+          
     
+      </TabView>
 
 </Dialog>
 
