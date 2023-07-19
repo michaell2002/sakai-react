@@ -13,6 +13,10 @@ import Crud from '../pages/pages/crud';
 import CustomerTable from '../components/CustomerTable';
 import SupplierTable from '../components/SupplierTable';
 import ContactPersonTable from '../components/ContactPersonTable';
+import UserTable from '../components/UserTable';
+import Dashboard from '../components/Dashboard';
+import ProductTable from '../components/ProductTable';
+import BrandTable from '../components/BrandTable';
 const Layout = (props) => {
     
     const { layoutConfig, layoutState, setLayoutState } = useContext(LayoutContext);
@@ -109,9 +113,13 @@ const Layout = (props) => {
                         </div>
                         <div className="layout-main-container">                       
                             <Routes>
+                                   <Route index path="/" element={<Dashboard/>}></Route>
                                    <Route path="/customers" element={<CustomerTable/>}></Route>
                                    <Route path="/suppliers" element={<SupplierTable/>}></Route> 
                                    <Route path="/contactpersons" element={<ContactPersonTable/>}></Route> 
+                                   <Route path="/users" element={<UserTable/>}></Route> 
+                                   <Route path="/inventory" element={<ProductTable/>}></Route> 
+                                   <Route path="/brand" element={<BrandTable/>}></Route> 
                             </Routes>
                         </div>
                         <div className="layout-mask"></div>

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef, useContext} from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
-import {fetchClients, createClient, updateClient, deleteClients} from './CustomerAPI';
+import {fetchClients, createClient, updateClient, deleteClients} from './api/CustomerAPI';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import { Toolbar } from 'primereact/toolbar';
@@ -15,7 +15,12 @@ import { InputNumber } from 'primereact/inputnumber';
 import { Dropdown } from 'primereact/dropdown';
 import { TabView, TabPanel } from 'primereact/tabview';
 import {ToggleButton} from 'primereact/togglebutton';
+import { types, provinces } from './constants/CustomerConstants';
+import UserContext from '../layout/context/usercontext';
+import { ProgressSpinner } from 'primereact/progressspinner';
 export default function CustomerTable() {
+  //Customer == Client in the backend
+  const {appUser} = useContext(UserContext);
   const emptyContactPerson = {
     id : null,
     name : "",
@@ -23,14 +28,17 @@ export default function CustomerTable() {
     telephoneNumber : "",
     mobilePhoneNumber : "",
     status : true,
-    client : null,
     tempId : null
   }
   const [clientType, setClientType] = useState({name : 'CONTRACTOR', code: 'CONTRACTOR'});
   const [selectedProvince, setSelectedProvince] = useState({name : 'Jakarta', code :  'Jakarta'});
-  let counterCP = 0;
+  const counterCP = useRef(0);
   const [submitted, setSubmitted] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(false);
+  const [saveCustomerProgress, setSaveCustomerProgress] = useState(false);
+  const saveCustomerController = useRef(new AbortController());
+  const deleteCustomersController = useRef(new AbortController());
   const emptyCustomer = {
     id : null,
     name : "",
@@ -52,7 +60,8 @@ export default function CustomerTable() {
 };
 
   const [customer, setCustomer] = useState({...emptyCustomer});
-  const toast = useRef(null);
+  const toast = useRef({});
+  const dialogToast = useRef({});
   const [searchValueToPass, setSearchValueToPass] = useState("");
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,47 +69,7 @@ export default function CustomerTable() {
   const [customers, setCustomers] = useState([]);
   const [addContactPerson, setAddContactPerson] = useState(false); 
   const [selectedCustomers, setSelectedCustomers] = useState([]);
-    const provinces = [
-      { name: 'Aceh', code: 'Aceh' },
-      { name: 'Bali', code: 'Bali' },
-      { name: 'Bangka Belitung', code: 'Bangka Belitung' },
-      { name: 'Banten', code: 'Banten' },
-      { name: 'Bengkulu', code: 'Bengkulu' },
-      { name: 'Gorontalo', code: 'Gorontalo' },
-      { name: 'Jakarta', code: 'Jakarta' },
-      { name: 'Jambi', code: 'Jambi' },
-      { name: 'Jawa Barat', code: 'Jawa Barat' },
-      { name: 'Jawa Tengah', code: 'Jawa Tengah' },
-      { name: 'Jawa Timur', code: 'Jawa Timur' },
-      { name: 'Kalimantan Barat', code: 'Kalimantan Barat' },
-      { name: 'Kalimantan Selatan', code: 'Kalimantan Selatan' },
-      { name: 'Kalimantan Tengah', code: 'Kalimantan Tengah' },
-      { name: 'Kalimantan Timur', code: 'Kalimantan Timur' },
-      { name: 'Kalimantan Utara', code: 'Kalimantan Utara' },
-      { name: 'Kepulauan Riau', code: 'Kepulauan Riau' },
-      { name: 'Lampung', code: 'Lampung' },
-      { name: 'Maluku', code: 'Maluku' },
-      { name: 'Maluku Utara', code: 'Maluku Utara' },
-      { name: 'Nusa Tenggara Barat', code: 'Nusa Tenggara Barat' },
-      { name: 'Nusa Tenggara Timur', code: 'Nusa Tenggara Timur' },
-      { name: 'Papua', code: 'Papua' },
-      { name: 'Papua Barat', code: 'Papua Barat' },
-      { name: 'Riau', code: 'Riau' },
-      { name: 'Sulawesi Barat', code: 'Sulawesi Barat' },
-      { name: 'Sulawesi Selatan', code: 'Sulawesi Selatan' },
-      { name: 'Sulawesi Tengah', code: 'Sulawesi Tengah' },
-      { name: 'Sulawesi Tenggara', code: 'Sulawesi Tenggara' },
-      { name: 'Sulawesi Utara', code: 'Sulawesi Utara' },
-      { name: 'Sumatera Barat', code: 'Sumatera Barat' },
-      { name: 'Sumatera Selatan', code: 'Sumatera Selatan' },
-      { name: 'Sumatera Utara', code: 'Sumatera Utara' }
-    ];
 
-    const types = [
-      {name : 'CONTRACTOR', code: 'CONTRACTOR'},
-      {name : 'PLANTATION', code: 'PLANTATION'},
-      {name : 'OTHERS', code: 'OTHERS'}
-    ]
     const [selectedFilter, setFilter] = useState({ name: 'All (complete words only)', code: 'all' });
     const filters = [
         { name: 'All (complete words only)', code: 'all' },
@@ -153,16 +122,22 @@ export default function CustomerTable() {
 
 
     const hideDialog = () => {
+        saveCustomerController.current.abort();
+        saveCustomerController.current = new AbortController();
+        setSaveCustomerProgress(prev => false);
         setSubmitted(prev => false);
         setCustomerDialog(prev => false);
         setSelectedCustomers(prev => []);
     };
 
     const hideDeletecustomerDialog = () => {
+        setDeleteProgress(prev => false);
         deleteCustomerDialog(prev => false);
     };
 
-    const hideDeletecustomersDialog = () => {
+    const hideDeleteCustomersDialog = () => {
+        deleteCustomersController.current.abort();
+        deleteCustomersController.current = new AbortController();
         setDeleteCustomersDialog(false);
     };
     const predicate = () => {
@@ -171,6 +146,8 @@ export default function CustomerTable() {
             } else if ((customer.email && customer.email.length > 250) || (customer.email && !emailPattern.test(customer.email))) {
               return false;
             } else if ((customer.phone && customer.phone.length > 20) || (customer.phone && !phonePattern.test(customer.phone))) {
+              return false;
+            }  else if (customer.groupName && customer.groupName.length > 250) {
               return false;
             } else if (customer.building && customer.building.length > 250) {
               return false;
@@ -191,36 +168,41 @@ export default function CustomerTable() {
             }
             return true;
           };
-  
-    const savecustomer = () => {
+    const resetUpdateCustomer = () => {
+      setSaveCustomerProgress(prev => false);
+      setCustomerDialog(prev => false);
+      setSelectedCustomers(prev => []);
+      const _emptyCustomer = {...emptyCustomer};
+      setCustomer(prev => _emptyCustomer);
+      loadLazyData();
+    };
+    const saveCustomer = () => {
         setSubmitted(prev => true);
-        //console.log("PREDICATE" + predicate());
-        if (predicate()) {
+        setSaveCustomerProgress(prev => true);
+        if (predicate()) { 
             let _customers = [...customers];
-            let _customer = { ...customer};
+            let _customer = JSON.parse(JSON.stringify(customer));
             if (customer.id) {
                 const index = findIndexById(customer.id);
-                updateClient(_customer).then(res => {
-                    _customers[index] = _customer;
-                    setCustomers(prev => _customers);
+                updateClient(_customer, saveCustomerController.current, appUser.tokenValue).then(res => {
                     toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customer Updated', life: 3000 });
                 }).catch(error => {
-                  toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
-                })
-                setSelectedCustomers(prev => []);
-                const _emptyCustomer = {...emptyCustomer};
-                setCustomer(prev => _emptyCustomer);
+                    toast.current.show({ severity: 'error', summary: 'Error', detail:  "Unable to update customer: " + error.message, life: 3000 });
+                }).finally(() => resetUpdateCustomer());
             } else {
-                 createClient(_customer).then(obj => {
-                    _customer.id = obj.id;
-                    _customers.push(_customer);
-                    setCustomers(prev => _customers);
+                createClient(_customer, saveCustomerController.current, appUser.tokenValue).then(obj => {
                   toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customer Created', life: 3000 });
-                 }).catch(error => {
-                  toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
-                 });
+                }).catch(error => {
+                  toast.current.show({ severity: 'error', summary: 'Error', detail:  "Unable to create customer: " + error.message, life: 3000 });
+                }).finally(() =>  {
+                  setCustomerDialog(prev => false);
+                  setSaveCustomerProgress(prev => false);
+                  loadLazyData();
+                });
             }
-            setCustomerDialog(prev => false);
+        } else {
+          dialogToast.current?.show({ severity: 'error', summary: 'Error', detail: 'Invalid Details: Recheck Main Details and Contact Persons', life: 3000 });
+          setSaveCustomerProgress(prev => false);
         }
     };
 
@@ -264,32 +246,44 @@ export default function CustomerTable() {
     const confirmDeleteSelected = () => {
         setDeleteCustomersDialog(prev => true);
     };
-    const onDeleteContactPerson = (idx) =>{
+    const onDeleteContactPerson = (tempId) =>{
       setCustomer(prev => {
-        const _customer = JSON.parse(JSON.stringify(prev));
-        _customer.contactPersons.splice(idx, 1);
-        return _customer;
-      })
+                  const _customer = JSON.parse(JSON.stringify(prev));
+                  _customer.contactPersons = _customer.contactPersons.filter(cp => {
+                    if (cp.tempId != tempId) {
+                      return true;
+                    }
+                    return false;
+                  })
+                  return _customer;
+                });
     }
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const phonePattern = /^[+\-\d]+$/;
     const deleteSelectedCustomers = () => {
-        deleteClients(selectedCustomers.map(c => c.id)).then(js => {
-          let _customers = customers.filter((val) => !selectedCustomers.includes(val));
-          setCustomers(prev => _customers);
-          setDeleteCustomersDialog(prev => false);
-          setSelectedCustomers(prev => []);
-          toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customers Deleted', life: 3000 });
-          loadLazyData();
-        }).catch(error => {
-          toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
-          loadLazyData();
-        })
+          setDeleteProgress(prev => true);
+          deleteClients(selectedCustomers.map(c => c.id), deleteCustomersController.current, appUser.tokenValue).then(js => {
+            let _customers = customers.filter((val) => !selectedCustomers.includes(val));
+            setCustomers(prev => _customers);
+            if (js.deletedAll) {
+              toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Customers Deleted', life: 3000 });
+            } else {
+              toast.current?.show({ severity: 'warn', summary: 'Warning', detail: 'Customer(s) with associated documents cannot be deleted', life: 3000 });
+            }
+          }).catch(error => {
+            toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+          }).finally(() => {
+            setDeleteProgress(prev => false);
+            setDeleteCustomersDialog(prev => false);
+            setSelectedCustomers(prev => []);
+            loadLazyData();
+          });
+
     };
     const customerDialogFooter = (
         <React.Fragment>
             <Button label="Cancel" icon="pi pi-times" outlined onClick={hideDialog} />
-            <Button label="Save" icon="pi pi-check" onClick={savecustomer} />
+            <Button label="Save" icon="pi pi-check" onClick={saveCustomer} />
         </React.Fragment>
     );
     const deletecustomerDialogFooter = (
@@ -300,7 +294,7 @@ export default function CustomerTable() {
     );
     const deletecustomersDialogFooter = (
         <React.Fragment>
-            <Button label="No" icon="pi pi-times" outlined onClick={hideDeletecustomersDialog} />
+            <Button label="No" icon="pi pi-times" outlined onClick={hideDeleteCustomersDialog} />
             <Button label="Yes" icon="pi pi-check" severity="danger" onClick={deleteSelectedCustomers} />
         </React.Fragment>
     );
@@ -326,19 +320,23 @@ export default function CustomerTable() {
     }, [selectedFilter]);
     
     const loadLazyData = () => {
-        setLoading(prev => true);
-        //console.log(JSON.stringify(lazyState));
-        fetchClients(lazyState, searchValueToPass, selectedFilter.code).then((data) => {
-            if (data != undefined && data != null) {
-                setTotalRecords(prev => data.totalRecords);
-                setCustomers(prev => data.customers);
-            } else {
-                toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
-            }
-            setLoading(prev => false);
-        }).catch(error => {
-            toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
-        });
+      if ((appUser.authorities.has("CUSTOMERS_READ") || appUser.authorities.has("ADMIN"))) {
+          setLoading(prev => true);
+          fetchClients(lazyState, searchValueToPass, selectedFilter.code, appUser.tokenValue).then((data) => {
+              if (data != undefined && data != null) {
+                  setTotalRecords(prev => data.totalRecords);
+                  setCustomers(prev => data.customers);
+              } else {
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+              }
+              setLoading(prev => false);
+          }).catch(error => {
+              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+              setLoading(prev => false);
+          });
+      }  else {
+        toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Unauthorized to READ Customers Table", life: 3000 }) : "";
+      }
     };
 
     const onPage = (event) => {
@@ -358,7 +356,7 @@ export default function CustomerTable() {
         if (e.key === 'Enter') {
           // Perform the action you want to execute on Enter key press
           if (searchValue.length < 4 && selectedFilter.code == "all") {
-            toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words with 3 or less characters would not activate filter', life: 3000 });
+            toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 });
           }
           setSearchValueToPass(prev => searchValue);
         } 
@@ -367,8 +365,8 @@ export default function CustomerTable() {
       const rightToolbarTemplate = () => {
         return (
             <div className="flex flex-wrap gap-5">
-                <Button icon="pi pi-plus" severity="success" rounded onClick={openNew}/>
-                <Button icon="pi pi-trash" severity="danger" rounded onClick={confirmDeleteSelected} />
+                {(appUser.authorities.has("CUSTOMERS_CREATE") || appUser.authorities.has("ADMIN")) && <Button icon="pi pi-plus" severity="success" rounded onClick={openNew}/>}
+                {(appUser.authorities.has("CUSTOMERS_DELETE") || appUser.authorities.has("ADMIN")) && <Button icon="pi pi-trash" severity="danger" rounded onClick={confirmDeleteSelected} /> }
             </div>
         );
     };
@@ -376,8 +374,8 @@ export default function CustomerTable() {
         setCustomer(prev =>  {
           const _customer =  JSON.parse(JSON.stringify(prev));
           const _emptyContactPerson = {...emptyContactPerson};
-          _emptyContactPerson.tempId = counterCP;
-          counterCP++;
+          _emptyContactPerson.tempId = counterCP.current;
+          counterCP.current = counterCP.current + 1;
           _customer.contactPersons = _customer.contactPersons.concat({..._emptyContactPerson});
           return _customer;
         });
@@ -404,10 +402,17 @@ export default function CustomerTable() {
             </>
         );
     };
-    const onInputCPChange = (index, property, value) => {
+    const onInputCPChange = (tId, property, value) => {
       setCustomer((prev) => {
-        const _customer =  JSON.parse(JSON.stringify(prev));
-        _customer.contactPersons[index][property] = value;
+        const _customer = JSON.parse(JSON.stringify(prev));
+        _customer.contactPersons = _customer.contactPersons.map(cp => {
+                                        if (cp.tempId == tId) {
+                                          cp[`${property}`] = value;
+                                        }
+                                        return cp;   
+                                    });
+                                    console.log("INPUT CHANGE")
+                                    console.log(_customer);
         return _customer;
       });
     };
@@ -430,8 +435,8 @@ export default function CustomerTable() {
       const _rd = JSON.parse(JSON.stringify(rd));
       const mappedArray = [];
       for (const c of _rd.contactPersons) {
-        mappedArray.push({...c, tempId : counterCP});
-        counterCP++;
+        mappedArray.push({...c, tempId : counterCP.current});
+        counterCP.current = counterCP.current + 1;
       }
       _rd.contactPersons = mappedArray;
       setCustomer(prev => _rd);
@@ -445,14 +450,19 @@ export default function CustomerTable() {
       setAddContactPerson(prev => rd.contactPersons.length > 0 ? true : false);
       setCustomerDialog(prev => true);
     };
-
-    const handleToggleButton = (e, index, property) => {
+    const handleToggleButton = (e, tempId) => {
       setCustomer((prev) => {
         const _customer =  JSON.parse(JSON.stringify(prev));
-        _customer.contactPersons[index]['status'] = e.value;
+        _customer.contactPersons = _customer.contactPersons.map(cp => {
+                                                                    if (cp.tempId == tempId) {
+                                                                      cp['status'] = !cp['status'];
+                                                                    }
+                                                                    return cp;   
+                                                                });
         return _customer;
       });
     }
+
     /*
     const openUpdate = () => {
       if (selectedCustomers.length == 1) {
@@ -477,14 +487,16 @@ export default function CustomerTable() {
                           onSort={onSort} sortField={lazyState.sortField} sortOrder={lazyState.sortOrder} rowClassName="" metaKeySelection={false}
                           loading={loading} tableStyle={{ maxWidth: '100vw' }} selectionMode="multiple"  showSelectAll={false}
                           selection={selectedCustomers} onSelectionChange={onSelectionChange} rowsPerPageOptions={[10, 25, 50]}>
+                          {(appUser.authorities.has("CUSTOMERS_UPDATE") || appUser.authorities.has("ADMIN")) && 
                           <Column
                             field="edit"
                             body={(rowData) => (
-                             <div className=" "onClick={() => handleEdit(rowData)}>
-                                  <i className="pi pi-id-card" style={{ cursor: 'pointer', fontSize: '1.3rem'}} onClick={() => handleEdit(rowData)} /> 
+                             <div className=" "onClick={(e) => handleEdit(rowData)}>
+                                  <i className="pi pi-id-card" style={{ cursor: 'pointer', fontSize: '1.3rem'}} onClick={(e) => handleEdit(rowData)} /> 
                              </div>
                             )}
                           />
+                          }
                           <Column field="clientType" header="Client Type" sortable/>
                           <Column field="groupName" header="Group" sortable />
                           <Column field="name" header="Name" sortable/>
@@ -492,15 +504,21 @@ export default function CustomerTable() {
                           <Column field="phone" header="Phone" sortable/>
                           <Column field="building" header="Building" sortable/>
                           <Column field="address1" header="Address 1" style={{ minWidth: '20rem' }} sortable/>
-                          <Column field="address2" header="Address 2" style={{ minWidth: '20rem' }}sortable />
+                          <Column field="address2" header="Address 2" style={{ minWidth: '20rem' }} sortable />
                           <Column field="neighborhood" header="Kecamatan" sortable/>
                           <Column field="district" header="Kelurahan" sortable />
                           <Column field="regencyCity" header="Kabupaten/Kota" sortable  />
                           <Column field="province" header="Province" sortable  />
                           <Column field="postalCode" header ="Postal Code" sortable/>
                   </DataTable>
-      <Dialog visible={customerDialog} style={{ width: '75vw' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Customer" modal className="p-fluid" footer={customerDialogFooter} onHide={hideDialog}>
-      
+<Dialog visible={customerDialog} style={{ width: '75vw' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Customer" modal className="p-fluid" footer={customerDialogFooter} onHide={hideDialog}>
+    <Toast ref={dialogToast}></Toast>
+    {saveCustomerProgress && 
+      <div className='flex align-content-center justify-content-center'>
+          <ProgressSpinner></ProgressSpinner>
+      </div>
+    }
+    {!saveCustomerProgress && 
     <TabView>
       <TabPanel header="Main">
       <div className="field ml-4 mr-4">
@@ -516,7 +534,7 @@ export default function CustomerTable() {
         />
         {submitted && !customer.name && <small className="p-error">Name is required.</small>}
         {submitted && customer.name && customer.name.length > 256 && (
-          <small className="p-error">Name is too long.</small>
+          <small className="p-error">Name is too long: max 256 char.</small>
         )}
       </div>
       <div className="field ml-4 mr-4">
@@ -525,6 +543,20 @@ export default function CustomerTable() {
         </label>
         <Dropdown value={clientType} onChange={handleClientType} options={types} optionLabel="name" 
                 placeholder="Pilih Tipe" className="w-full md:w-14rem" />
+      </div>
+      <div className="field ml-4 mr-4">
+        <label htmlFor="groupName" className="font-bold">
+          Group Name
+        </label>
+        <InputText
+          id="groupName"
+          value={customer.groupName}
+          onChange={(e) => onInputChange(e, 'groupName')}
+          className={{ 'p-invalid': (submitted && customer.groupName && customer.groupName.length > 250) }}
+        />
+        {submitted && customer.groupName && customer.groupName.length > 250 && (
+          <small className="p-error">Group Name is too long : max 250 char.</small>
+        )}
       </div>
       <div className="field ml-4 mr-4">
         <label htmlFor="email" className="font-bold">
@@ -537,7 +569,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.email && customer.email.length > 250) || (submitted && customer.email && !emailPattern.test(customer.email))}}
         />
         {submitted && customer.email && customer.email.length > 250 && (
-          <small className="p-error">Email is too long.</small>
+          <small className="p-error">Email is too long : max 250 char.</small>
         )}
       {submitted && customer.email && !emailPattern.test(customer.email) && <small className="p-error">Email is invalid.</small>}
       </div>
@@ -553,7 +585,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid':(submitted && customer.phone && customer.phone.length > 20) || submitted && customer.phone && !phonePattern.test(customer.phone)}}
         />
         {submitted && customer.phone && customer.phone.length > 20 && (
-          <small className="p-error">Phone is too long.</small>
+          <small className="p-error">Phone is too long : max 20 char.</small>
         )}
         {submitted && customer.phone && !phonePattern.test(customer.phone) && <small className="p-error">Phone is invalid.</small>}
 
@@ -570,7 +602,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.building && customer.building.length > 250) }}
         />
         {submitted && customer.building && customer.building.length > 250 && (
-          <small className="p-error">Building is too long.</small>
+          <small className="p-error">Building is too long : max 250 char.</small>
         )}
       </div>
 
@@ -585,7 +617,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid':(submitted && customer.address1 && customer.address1.length > 400) }}
         />
         {submitted && customer.address1 && customer.address1.length > 400 && (
-          <small className="p-error">Address 1 is too long.</small>
+          <small className="p-error">Address 1 is too long  : max 400 char.</small>
         )}
       </div>
 
@@ -600,7 +632,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.address2 && customer.address2.length > 400)}}
         />
         {submitted && customer.address2 && customer.address2.length > 400 && (
-          <small className="p-error">Address 2 is too long.</small>
+          <small className="p-error">Address 2 is too long : max 250 char.</small>
         )}
       </div>
 
@@ -615,7 +647,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.neighborhood && customer.neighborhood.length > 250) }}
         />
         {submitted && customer.neighborhood && customer.neighborhood.length > 250 && (
-          <small className="p-error">Neighborhood is too long.</small>
+          <small className="p-error">Neighborhood is too long : max 250 char.</small>
         )}
       </div>
 
@@ -630,7 +662,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': ( submitted && customer.district && customer.district.length > 250 ) }}
         />
         {submitted && customer.district && customer.district.length > 250 && (
-          <small className="p-error">District is too long.</small>
+          <small className="p-error">District is too long : max 250 char. </small>
         )}
       </div>
 
@@ -645,7 +677,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.regencyCity && customer.regencyCity.length > 250 )}}
         />
         {submitted && customer.regencyCity && customer.regencyCity.length > 250 && (
-          <small className="p-error">Regency/City is too long.</small>
+          <small className="p-error">Regency/City is too long : max 250 char.</small>
         )}
       </div>
 
@@ -668,7 +700,7 @@ export default function CustomerTable() {
           className={{ 'p-invalid': (submitted && customer.postalCode && customer.postalCode.length > 250 )}}
         />
         {submitted && customer.postalCode && customer.postalCode.length > 250 && (
-          <small className="p-error">Postal Code is too long.</small>
+          <small className="p-error">Postal Code is too long : max 250 char.</small>
         )}
       </div>
 
@@ -684,128 +716,125 @@ export default function CustomerTable() {
           rows={5} cols={30}
         />
         {submitted && customer.description && customer.description.length > 1000 && (
-          <small className="p-error">Description is too long.</small>
+          <small className="p-error">Description is too long : max 1000 char.</small>
         )}
       </div>
     </TabPanel>
 
-    <TabPanel header = "Contact Persons">
-      {addContactPerson && 
-          customer.contactPersons.map((cp, index) => {
-            return  (
-            <div className='card' key={cp.tempId}> 
-              <div className="field grid align-items-center justify-content-center">
-                  <div className="col-11 mb-5">
-                      <i className="pi pi-user mr-4"></i>
-                      <b>Contact Person {index + 1} Data</b>
-                  </div>
-                  <div className="col-1 mb-5">
-                    <Button icon="pi pi-times" rounded outlined severity="danger" aria-label="Cancel" onClick={(e) => onDeleteContactPerson(index)} />
-                  </div>
-                        <div className="col-3"></div>
-                        <div className="col-6">
+    <TabPanel header="Contact Persons">
+            {addContactPerson && 
+                customer.contactPersons.map((cp, index) => {
+                  return  (
+                  <div className='card' key={cp.tempId}> 
+                    <div className="field grid align-items-center justify-content-center">
+                        <div className="col-11 mb-5">
+                            <i className="pi pi-user mr-4"></i>
+                            <b>Contact Person {index + 1} Data</b>
+                        </div>
+                        <div className="col-1 mb-5">
+                          <Button icon="pi pi-times" rounded outlined severity="danger" aria-label="Cancel" onClick={(e) => onDeleteContactPerson(cp.tempId)} />
+                        </div>
+                              <div className="col-3"></div>
+                              <div className="col-6">
+                                    <div className="field">
+                                    <label htmlFor="name" className="font-bold">
+                                      Name*
+                                    </label>
+                                    <InputText
+                                      id="name"
+                                      value={cp.name}
+                                      onChange={(e) => onInputCPChange(cp.tempId, 'name', e.target.value)}
+                                      required
+                                      className={{ 'p-invalid': (submitted && !cp.name ) || (submitted && cp.name && cp.name.length > 250 )}}
+                                    />
+                                    {submitted && !cp.name && <small className="p-error">Name is required.</small>}
+                                    {submitted && cp.name && cp.name.length > 250 && (
+                                      <small className="p-error">Name is too long : max 250 char.</small>
+                                    )}
+                                  </div>
+                            </div> 
+                            <div className="col-3"></div>
+                            <div className="col-3"></div>
+                            <div className="col-6">
                               <div className="field">
-                              <label htmlFor="name" className="font-bold">
-                                Name*
-                              </label>
-                              <InputText
-                                id="name"
-                                value={cp.name}
-                                onChange={(e) => onInputCPChange(index, 'name', e.target.value)}
-                                required
-                                className={{ 'p-invalid': (submitted && !cp.name ) || (submitted && cp.name && cp.name.length > 250 )}}
-                              />
-                              {submitted && !cp.name && <small className="p-error">Name is required.</small>}
-                              {submitted && cp.name && cp.name.length > 250 && (
-                                <small className="p-error">Name is too long.</small>
-                              )}
-                            </div>
-                      </div> 
-                      <div className="col-3"></div>
-                      <div className="col-3"></div>
+                                <label htmlFor="email" className="font-bold">
+                                  Email
+                                </label>
+                                <InputText
+                                  id="email"
+                                  value={cp.email}
+                                  onChange={(e) => onInputCPChange(cp.tempId, 'email', e.target.value)}
+                                  className={{ 'p-invalid': (submitted && cp.email && cp.email.length > 250 )}}
+                                />
+                                {submitted && cp.email && cp.email.length > 250 && (
+                                  <small className="p-error">Email is too long : max 250 char.</small>
+                                )}
+                              </div>
+                            </div> 
+                            <div className="col-3"></div>
+                            <div className="col-3"></div>
+                            <div className="col-6">
+                              <div className="field">
+                                <label htmlFor="telephoneNumber" className="font-bold">
+                                  Telephone
+                                </label>
+                                <InputText
+                                  id="telephoneNumber"
+                                  value={cp.telephoneNumber}
+                                  onChange={(e) => onInputCPChange(cp.tempId, 'telephoneNumber', e.target.value)}
+                                  className={{ 'p-invalid': (submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 )}}
+                                />
+                                {submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 && (
+                                  <small className="p-error">Phone Number is too long : max 250 char.</small>
+                                )}
+                              </div>
+                            </div> 
+                            <div className="col-3"></div>
+                            <div className="col-3"></div>
+                            <div className="col-6">
+                              <div className="field">
+                                <label htmlFor="mobilePhoneNumber" className="font-bold">
+                                  Mobile Number
+                                </label>
+                                <InputText
+                                  id="mobilePhoneNumber"
+                                  value={cp.mobilePhoneNumber}
+                                  onChange={(e) => onInputCPChange(cp.tempId, 'mobilePhoneNumber', e.target.value)}
+                                  className={{ 'p-invalid': (submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 )}}
+                                />
+                                {submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 && (
+                                  <small className="p-error">Phone Number is too long : max 250 char.</small>
+                                )}
+                              </div>
+                            </div> 
+                            <div className="col-3"></div>
+                            <div className="col-3"></div>
+                            <div className="col-6">
+                              <span className="font-bold">Status: </span>
+                              <div className="field align-content-center justify-content-center text-center">
+                                <ToggleButton onLabel="Active" offLabel="Inactive" checked={cp.status} onChange={(e) => handleToggleButton(e, cp.tempId)} className="w-15rem h-3rem" />
+                              </div>
+                            </div> 
+                            <div className="col-3"></div>
+                    </div>
+                  </div>);
+                })
+        }
+        <div className='card'> 
+                  <div className="field grid align-items-center justify-content-center">
                       <div className="col-6">
-                        <div className="field">
-                          <label htmlFor="email" className="font-bold">
-                            Email
-                          </label>
-                          <InputText
-                            id="email"
-                            value={cp.email}
-                            onChange={(e) => onInputCPChange(index, 'email', e.target.value)}
-                            className={{ 'p-invalid': (submitted && cp.email && cp.email.length > 250 )}}
-                          />
-                          {submitted && cp.email && cp.email.length > 250 && (
-                            <small className="p-error">Email is too long.</small>
-                          )}
-                        </div>
-                      </div> 
-                      <div className="col-3"></div>
-                      <div className="col-3"></div>
-                      <div className="col-6">
-                        <div className="field">
-                          <label htmlFor="telephoneNumber" className="font-bold">
-                            Telephone
-                          </label>
-                          <InputText
-                            id="telephoneNumber"
-                            value={cp.telephoneNumber}
-                            onChange={(e) => onInputCPChange(index, 'telephoneNumber', e.target.value)}
-                            className={{ 'p-invalid': (submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 )}}
-                          />
-                          {submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 && (
-                            <small className="p-error">Phone Number is too long.</small>
-                          )}
-                        </div>
-                      </div> 
-                      <div className="col-3"></div>
-                      <div className="col-3"></div>
-                      <div className="col-6">
-                        <div className="field">
-                          <label htmlFor="mobilePhoneNumber" className="font-bold">
-                            Mobile Phone
-                          </label>
-                          <InputText
-                            id="mobilePhoneNumber"
-                            value={cp.mobilePhoneNumber}
-                            onChange={(e) => onInputCPChange(index, 'mobilePhoneNumber', e.target.value)}
-                            className={{ 'p-invalid': (submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 )}}
-                          />
-                          {submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 && (
-                            <small className="p-error">Phone Number is too long.</small>
-                          )}
-                        </div>
-                      </div> 
-                      <div className="col-3"></div>
-                      <div className="col-3"></div>
-                      <div className="col-6">
-                        <span className="font-bold">Status: </span>
-                        <div className="field align-content-center justify-content-center text-center">
-                          <ToggleButton onLabel="Active" offLabel="Inactive" checked={cp.status} onChange={(e) => handleToggleButton(e, index)} className="w-15rem h-3rem" />
-                        </div>
-                      </div> 
-                      <div className="col-3"></div>
-
-              </div>
-            </div>);
-          })
-    }
-          <div className='card'> 
-              <div className="field grid align-items-center justify-content-center">
-                  <div className="col-6">
-                      <i className="pi pi-user mr-4"></i>
-                      <b>Contact Person</b>
+                          <i className="pi pi-user mr-4"></i>
+                          <b>Contact Person</b>
+                      </div>
+                      <div className="col-3">
+                          <Button label="Add Contact Person" icon="pi pi-plus" outlined onClick={handleAddPerson} />
+                      </div>
                   </div>
-                  <div className="col-3">
-                      <Button label="Add Contact Person" icon="pi pi-plus" outlined onClick={handleAddPerson} />
-                  </div>
-              </div>
           </div> 
-
-      </TabPanel>
-          
-          
+        </TabPanel>
     
       </TabView>
+}
 
 </Dialog>
 
@@ -822,10 +851,15 @@ export default function CustomerTable() {
                 </div>
             </Dialog>
 
-            <Dialog visible={deleteCustomersDialog} style={{ width: '32rem' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Confirm" modal footer={deletecustomersDialogFooter} onHide={hideDeletecustomersDialog}>
-                <div className="confirmation-content">
-                    <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                    {customer && <span>Are you sure you want to delete the selected customers?</span>}
+            <Dialog visible={deleteCustomersDialog} style={{ width: '32rem' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Confirm" modal footer={deletecustomersDialogFooter} onHide={hideDeleteCustomersDialog}>
+                <div className="confirmation-content flex align-content-center justify-content-center">
+                  {deleteProgress && <ProgressSpinner></ProgressSpinner>}
+                  {!deleteProgress &&
+                    <>
+                      <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
+                      {customer && <span>Are you sure you want to delete the selected customers?</span>}
+                    </>
+                  }
                 </div>
             </Dialog>
             </div>

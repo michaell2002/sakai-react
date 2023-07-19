@@ -1,2 +1,2 @@
-const SERVER_PREFIX = "http://localhost:8080";
+const SERVER_PREFIX = "http://localhost:5000/api";
 export default SERVER_PREFIX;
