@@ -7,12 +7,12 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
 
     return fetch(`${SERVER_PREFIX}/user/query?searchValue=${searchValue}`, {
         method: 'POST',
-        //credentials: 'include',
+        ////credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`,
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(lazyState),
         signal : controller.signal
       })
@@ -30,6 +30,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
   };
 
   export function createUser(user, saveUserController, tokenValue) {
+    console.log(user);
     return fetch(`${SERVER_PREFIX}/user`, {
         method: 'POST',
         headers: {
@@ -37,7 +38,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(user),
         signal: saveUserController.signal
       })
@@ -45,7 +46,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
-          } else if (response.status == 422) {
+          } else if (response.status == 409) {
             throw new Error("User already exists");
           }
           else {
@@ -63,7 +64,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(user),
         signal: saveUserController.signal
       })
@@ -71,6 +72,8 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
+          } else if (response.status == 409) {
+            throw new Error("User already exists");
           }
           else {
             throw new Error(`Failed to update user: ${response.status}`);
@@ -87,7 +90,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(selectedUsersId),
         signal : deleteUserController.signal
       })
@@ -112,7 +115,7 @@ export function fetchUsers ( lazyState, searchValue, tokenValue) {
       
       const loginResult = await fetch(`${SERVER_PREFIX}/login`, {
         method: 'POST',
-        //credentials: 'include',
+        ////credentials: 'include',
         
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +181,7 @@ export function refreshTokenUpdated(tv, updateAppUser, controller) {
                               'Content-Type': 'application/json',
                               'Authorization': `Bearer ${tv}`,
                             },
-                            credentials: 'include',
+                            //credentials: 'include',
                             body: JSON.stringify({tokenValue : tv}),
                             signal : controller.signal
                           })

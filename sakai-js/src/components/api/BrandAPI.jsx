@@ -8,7 +8,7 @@ export function createBrand(brand, createBrandController, tokenValue) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenValue}`
       },
-      credentials: 'include',
+      //credentials: 'include',
       body: JSON.stringify(brand),
       signal: createBrandController.signal
     })
@@ -17,6 +17,8 @@ export function createBrand(brand, createBrandController, tokenValue) {
           return response.json();
         } else if (response.status == 401 || response.status == 403) {
           throw new Error("UNAUTHORIZED");
+        } else if (response.status == 409) {
+          throw new Error("Brand already exists");
         }
         else {
           throw new Error(`Failed to create brands: ${response.status}`);
@@ -33,7 +35,7 @@ export function deleteBrand(brand, deleteBrandController, tokenValue) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenValue}`
       },
-      credentials: 'include',
+      //credentials: 'include',
       body: JSON.stringify(brand),
       signal: deleteBrandController.signal
     })
@@ -61,7 +63,36 @@ export function deleteBrand(brand, deleteBrandController, tokenValue) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenValue}`
       },
-      credentials: 'include',
+      //credentials: 'include',
+      signal : controller.signal
+    })
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else if (response.status == 401 || response.status == 403) {
+            throw new Error("Unauthorized");
+          } else {
+            throw new Error(`Failed to fetch brands: ${response.status}`);
+          }
+        }).catch(error => {
+          throw error;
+        });
+  };
+  
+  export async function fetchFilteredBrands(tokenValue, searchValue) {
+    console.log(searchValue)
+    const controller = new AbortController();
+    setTimeout(() => {
+        controller.abort();
+    }, 5000);
+    return fetch(`${SERVER_PREFIX}/brand/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokenValue}`
+      },
+      //credentials: 'include',
+      body : JSON.stringify({query : searchValue}),
       signal : controller.signal
     })
         .then((response) => {

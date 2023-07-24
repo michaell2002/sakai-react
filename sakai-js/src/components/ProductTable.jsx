@@ -10,12 +10,19 @@ import { Toast } from 'primereact/toast';
 import { Dialog } from 'primereact/dialog';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Dropdown } from 'primereact/dropdown';
-import {countries} from './constants/Countries';
 import { TabView, TabPanel } from 'primereact/tabview';
 import {ToggleButton} from 'primereact/togglebutton';
 import UserContext from '../layout/context/usercontext';
 import { ProgressSpinner } from 'primereact/progressspinner';
+import { fetchBrands, fetchFilteredBrands } from './api/BrandAPI';
+import { AutoComplete } from 'primereact/autocomplete';
+import {InputNumber} from 'primereact/inputnumber';
+import {Divider} from 'primereact/divider';
+import { fetchWarehouses } from './api/ProfilePanelAPI';
+import { fetchPurchaseDocumentsByRefNo } from './api/PurchaseDocumentAPI';
 export default function ProductTable() {
+
+    const [defaultSupplier, setDefaultSuppier] = useState(null);
     const emptyContactPerson = {
       id : null,
       name : "",
@@ -32,18 +39,38 @@ export default function ProductTable() {
       deletable : true,
       tempId : null
     }
+    //TODO 
+    const emptyPurchaseDocument = {
+      id: null,
+      refNo: '',
+      supplierPurchase: {...defaultSupplier},
+      fieldCreatedDate: null,
+      orderItems: [],
+      status: null,
+      statusEnumString: '',
+      ownership: true,
+      paymentTnC: '',
+      otherNotes: '',
+      tempId : null
+  };
+    const tempProductSpecId = useRef(0);
+    const tempProductWarehouseQuantityId = useRef(0);
+    const tempPurchaseDocumentId = useRef(0);
     let counterProduct = 0;
     let counterBrand = 0;
     const {appUser} = useContext(UserContext);
-    const [selectedCountry, setSelectedCountry] = useState( { name: 'Singapore', code: 'Singapore' });
+    const [selectedBrand, setSelectedBrand] = useState(null);
+    const [brands, setBrands] = useState([]);
+    const [filteredBrands, setFilteredBrands] = useState([]);
     const [selectedFilter, setFilter] = useState({ name: 'All (complete words only)', code: 'all' });
     const [expandedRows, setExpandedRows] = useState([]);
     const filters = [
       { name: 'All (complete words only)', code: 'all' },
-      { name: 'Name', code: 'name ' },
-      { name: 'Email', code: 'email' },
-      { name: 'Telephone', code: 'telephone' },
-      { name: 'Origin Country', code: 'originCountry' }
+      { name: 'Brand Name', code: 'brandName' }, 
+      { name: 'Product Code', code: 'productCode' },
+      { name: 'Product Name', code: 'productName' },
+      { name: 'Standard Price', code: 'standardPrice' },
+      { name: 'Product Details', code: 'productDetails' }
   ];
     const [tempBrand, setTempBrand] = useState({...emptyBrand});
     const [brandSubmitted, setBrandSubmitted] = useState(false);
@@ -51,38 +78,50 @@ export default function ProductTable() {
     const [searching, setSearching] = useState(false);
     const saveProductController = useRef(new AbortController())
     const deleteProductsController = useRef(new AbortController());
+    const [productSpecsForm, setProductSpecsForm] = useState({});
+    const [warehouseQuantityForm, setWarehouseQuantityForm] = useState({});
+    const [purchaseDocumentsForm, setPurchaseDocumentsForm] = useState([]);
+    const [warehouses, setWarehouses] = useState([]);
+    const [purchaseTemp, setPurchaseTemp] = useState({...emptyPurchaseDocument});
+    const [filteredPurchasesByRefNo, setFilteredPurchasesByRefNo] = useState([]);
+
     const emptyProduct = {
-      id : null,
-      name: "",
-      email: "",
-      telephone: "",
-      originCountry: selectedCountry.name,
-      description: "",
-      contactPersons : [],
-      brands : []
+      id: null,
+      productCode: '',
+      brand: null,
+      productName: '',
+      productDetails: '',
+      productSpecs: {},
+      warehouseQuantity: {},
+      offsetStockSoldOutsideSystem: 0,
+      warehouses: [],
+      standardPrice: null,
+      brandName: '',
   };
-    const toast = useRef({});
-    const dialogToast = useRef({});
+    const toast = useRef(null);
+    const dialogToast = useRef(null);
     const [deleteProgress, setDeleteProgress] = useState(false);
     const [editOrCreateProgress, setEditOrCreateProgress] = useState(false);
     const [product, setProduct] = useState({...emptyProduct});
     const [searchValueToPass, setSearchValueToPass] = useState("");
     const [searchValue, setSearchValue] = useState("");
+    const [searchValueBrand, setSearchValueBrand] = useState({query : ""});
+    const [searchValuePurchaseRefNo, setSearchValuePurchaseRefNo] = useState({query : ""});
     const [loading, setLoading] = useState(false);
     const [totalRecords, setTotalRecords] = useState(0);
     const [products, setProducts] = useState([]);
     const [addContactPerson, setAddContactPerson] = useState(false); 
     const [selectedProducts, setSelectedProducts] = useState([]);
-          const [lazyState, setlazyState] = useState({
-              first: 0,
-              rows: 10,
-              page: 1,
-              sortField: null,
-              sortOrder: null,
-              filters: {
-                  name: { value: '', matchMode: 'contains' },
-              } 
-          });
+    const [lazyState, setlazyState] = useState({
+        first: 0,
+        rows: 10,
+        page: 1,
+        sortField: null,
+        sortOrder: null,
+        filters: {
+            name: { value: '', matchMode: 'contains' },
+        } 
+    });
       const [productDialog, setProductDialog] = useState(false);
       const [deleteProductDialog, setDeleteProductDialog] = useState(false);
       const [deleteProductsDialog, setDeleteProductsDialog] = useState(false);
@@ -110,11 +149,10 @@ export default function ProductTable() {
       const hideDeleteproductsDialog = () => {
         deleteProductsController.current.abort();
         deleteProductsController.current = new AbortController();
-  
         setDeleteProgress(prev => false);
         setDeleteProductsDialog(false);
       };
-      const predicate = () => {
+      const predicate = () => { //TODO : UPDATE
               if (product.name.length < 1 || product.name.length > 256) {
                 return false;
               } else if ((product.email && product.email.length > 250) || (product.email && !emailPattern.test(product.email))) {
@@ -126,11 +164,11 @@ export default function ProductTable() {
               }
               return true;
             };
-      const handleChangeCountry = (e) => {
-        setSelectedCountry(prev => e.target.value);
-        const _country = (e.target) ? e.target.value.name : '';
+      const handleChangeBrand = (e) => {
+        setSelectedBrand(prev => e.target.value);
+        const _brand = (e.target) ? e.target.value.name : '';
         const _product = JSON.parse(JSON.stringify(product));
-        _product.originCountry = _country;
+        _product.brand = _brand;
         setProduct(prev => _product);
       }
       const updateProductReset = () => {
@@ -182,9 +220,11 @@ export default function ProductTable() {
       const onInputChange = (e, name) => {
           const val = (e.target && e.target.value) || '';
           let _product = { ...product };
-  
-          _product[`${name}`] = val;
-  
+          if (name == 'refNo') {
+            _product[`${name}`] = val.toUpperCase();
+          } else {
+            _product[`${name}`] = val;
+          }
           setProduct((prev) => _product);
       };
   
@@ -273,7 +313,46 @@ export default function ProductTable() {
           loadLazyData();
         }
       }, [selectedFilter])
-  
+
+      useEffect(() => {
+        fetchWarehouses(appUser.tokenValue).then(data => {
+          if (data != undefined && data != null) {
+              setWarehouses(prev => data);
+          } else {
+            toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load warehouses ', life: 3000 }) : "";
+          }
+        }).catch(error => {
+          toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load warehouses' + error.message, life: 3000 }) : "";
+        });
+      }, [])
+
+      useEffect(() => {
+        let ignore = false;
+        fetchFilteredBrands(appUser.tokenValue, searchValueBrand.query).then(res => {
+          if (!ignore) {
+            setFilteredBrands(prev => res);
+          }
+        }).catch(error => {
+          dialogToast.current  != null ? dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Unable to fetch brands ' + error.message, life: 3000 }) : "";
+        })
+        return () => ignore = true;
+      }, [searchValueBrand])
+
+      useEffect(() => {
+        let ignore = false;
+        fetchPurchaseDocumentsByRefNo(searchValuePurchaseRefNo.query, appUser.tokenValue).then(res => {
+          if (!ignore) {
+            setFilteredPurchasesByRefNo(prev => res);
+          }
+        }).catch(error => {
+          dialogToast.current  != null ? dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Unable to fetch purchase documents ' + error.message, life: 3000 }) : "";
+        })
+        return () => ignore = true;
+      }, [searchValuePurchaseRefNo])
+
+    const searchBrand = (event) => {
+          setSearchValueBrand(prev => ({query : event.query.toLowerCase()}));
+    };
       const loadLazyData = () => {
         if (appUser.authorities.has("PRODUCTS_READ") || appUser.authorities.has("ADMIN")) {
             setLoading(prev => true);
@@ -282,15 +361,15 @@ export default function ProductTable() {
                     setTotalRecords(prev => data.totalRecords);
                     setProducts(prev => data.products);
                 } else {
-                  toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load products', life: 3000 }) : "";
+                  toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load products ', life: 3000 }) : "";
                 }
                 setLoading(prev => false);
             }).catch(error => {
-              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load products', life: 3000 }) : "";
+              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load products ' + error.message, life: 3000 }) : "";
               setLoading(prev => false);
             });
           } else {
-              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Unauthorized to READ products', life: 3000 }) : "";       
+              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Unauthorized to READ products ', life: 3000 }) : "";       
               setLoading(prev => false);
           }
       };
@@ -312,7 +391,7 @@ export default function ProductTable() {
           if (e.key === 'Enter') {
             // Perform the action you want to execute on Enter key press
             if (searchValue.length < 4 && selectedFilter.code == "all") {
-              toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 });
+              toast.current != null ? toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 }) : "";
             }
             setSearchValueToPass(prev => searchValue);
           } 
@@ -347,7 +426,7 @@ export default function ProductTable() {
           {(appUser.authorities.has("PRODUCTS_READ") || appUser.authorities.has("ADMIN")) &&
               <span className="p-input-icon-left">
                   <div className="flex flex-row gap-2">
-                      <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Products" style={{width:"30vw"}} />
+                      <InputText type="search" value={searchValue} onKeyDown={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Products" style={{width:"30vw"}} />
                       <Dropdown value={selectedFilter} onChange={(e) => setFilter(prev => e.value)} options={filters} optionLabel="name" 
                           placeholder="Select Filter" className="w-full md:w-14rem" />
                       <Button onClick={e => {
@@ -363,13 +442,6 @@ export default function ProductTable() {
           );
       };
   
-      const actionBodyTemplate = (rowData) => {
-        return (
-            <React.Fragment>
-                {rowData.deletable && <Button icon="pi pi-trash" rounded outlined severity="danger" onClick={(e) => handleRemoveBrand(rowData)} /> } 
-            </React.Fragment>
-        );
-    };
     const onBrandChange = (e) => {
       const val = (e.target && e.target.value) || '';
       const _tempBrand = {...tempBrand};
@@ -383,6 +455,9 @@ export default function ProductTable() {
       return _product;
     });
   }
+  const onBrandAutocompleteChange = (e) => {
+      setSelectedBrand(prev => e.value);
+  };
       const onInputCPChange = (index, property, value) => {
         setProduct((prev) => {
           const _product = JSON.parse(JSON.stringify(prev));
@@ -390,9 +465,70 @@ export default function ProductTable() {
           return _product;
         });
       };
+      const handleAddSpec = (e) => {
+        const _productSpecsForm = JSON.parse(JSON.stringify(productSpecsForm));
+        const id = tempProductSpecId.current;
+        tempProductSpecId.current = tempProductSpecId.current + 1;
+        _productSpecsForm[id] =  ["", ""];
+        console.log(_productSpecsForm);
+        setProductSpecsForm(prev => _productSpecsForm);
+
+      };
+      const onSpecChange = (e, id, field) => {
+        let _productSpecsForm = JSON.parse(JSON.stringify(productSpecsForm));
+        if (field == 'key') {
+          _productSpecsForm[id][0] = e.target ? e.target.value : "";
+        } else {
+          _productSpecsForm[id][1] = e.target ? e.target.value : "";
+        }
+        setProductSpecsForm(prev => _productSpecsForm);
+      }
+      const handleSpecDelete = (id) => {
+        const _productSpecsForm = JSON.parse(JSON.stringify(productSpecsForm));
+        delete _productSpecsForm[id];
+        setProductSpecsForm(prev => _productSpecsForm);
+      }
+      const handleAddWarehouseQuantity = (e) => {
+        const _warehouseQuantityForm = JSON.parse(JSON.stringify(warehouseQuantityForm));
+        const id = tempProductWarehouseQuantityId.current;
+        tempProductWarehouseQuantityId.current = tempProductWarehouseQuantityId.current + 1;
+        _warehouseQuantityForm[id] =  [warehouses.length > 0 ? warehouses[0] : {}, 0];
+        setWarehouseQuantityForm(prev => _warehouseQuantityForm);
+      };
+      const onWarehouseQuantityChange = (e, id, field) => {
+        let _warehouseQuantityForm = JSON.parse(JSON.stringify(warehouseQuantityForm));
+        if (field == 'key') {
+          _warehouseQuantityForm[id][0] = e.value;
+        } else {
+          _warehouseQuantityForm[id][1] = e.target ? e.target.value : "";
+        }
+        setWarehouseQuantityForm(prev => _warehouseQuantityForm);
+      };
+      const handleWarehouseQuantityDelete = (id) => {
+        const _warehouseQuantityForm = JSON.parse(JSON.stringify(warehouseQuantityForm));
+        delete _warehouseQuantityForm[id];
+        setWarehouseQuantityForm(prev => _warehouseQuantityForm);
+      };
+      
+      const handleAddPurchaseDocument = (e) => {
+        //TODO : fetch purchase documents by refNo keyword
+        const pId = tempPurchaseDocumentId.current;
+        tempPurchaseDocumentId.current = tempPurchaseDocumentId.current + 1;
+        setPurchaseDocumentsForm(prev => prev.concat({...emptyPurchaseDocument, tempId : pId }));
+        setPurchaseTemp(prev => ({id : null, refNo : ""}));
+      };
+
+      const searchPurchasesByRefNo = (e) => {
+        setSearchValuePurchaseRefNo(prev => ({query : e.query.trim().toUpperCase()}))
+      };
+
+      const onChangePurchaseRefNo = (e) => {
+        console.log(e.value);
+        setPurchaseTemp(prev => e.value);
+      }
+
       const handleEdit = (rd) => {
         const _rd = JSON.parse(JSON.stringify(rd));
-  
         const mappedArrayCP = [];
         for (const r of _rd.contactPersons) {
           mappedArrayCP.push({...r, tempId : counterProduct});
@@ -406,12 +542,12 @@ export default function ProductTable() {
           counterBrand++;
         }
         _rd.brands = mappedArrayBrands;
-  
+        
         setProduct(prev => _rd);
         setSelectedProducts(prev => []);
-        for (const country of countries) {
-          if (country.name == _rd.originCountry) {
-            setSelectedCountry(prev => country);
+        for (const brand of brands) {
+          if (brand.name == _rd.brand) {
+            setSelectedBrand(prev => brand);
           }
         }
         
@@ -419,6 +555,7 @@ export default function ProductTable() {
         setAddContactPerson(prev => rd.contactPersons.length > 0 ? true : false);
         setProductDialog(prev => true);
       };
+      /*
       const handleAddBrand = (e) => {
         setBrandSubmitted(prev => true);
         if (tempBrand.name.trim().length > 0 && tempBrand.name.trim().length < 256 && product.brands.filter(b => b.name.toLowerCase() == tempBrand.name.trim().toLowerCase()).length == 0) {
@@ -435,34 +572,48 @@ export default function ProductTable() {
             setTempBrand(prev => _emptyBrand);
             setBrandSubmitted(prev => false);
         } else {
-            dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Invalid Brand Name (Valid: 0 - 256 char. and unique)', life: 3000 });
+            dialogToast.current != null ? dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Invalid Brand Name (Valid: 0 - 256 char. and unique)', life: 3000 }) : "";
         }
-    };
+    }; */
+    const actionBodyTemplate = (rowData) => {
+      return (
+          <React.Fragment>
+              {rowData.deletable && <Button icon="pi pi-trash" rounded outlined severity="danger" onClick={(e) => handleRemoveBrand(rowData)} /> } 
+          </React.Fragment>
+      );
+  };
+    const rowExpansionTemplate = (data) => {
+      return (
+          <div className="p-3">
+              <h5>Orders for {data.name}</h5>
+              {/*<DataTable value={data.orders}>
+                  <Column field="id" header="Id" sortable></Column>
+                  <Column field="customer" header="Customer" sortable></Column>
+                  <Column field="date" header="Date" sortable></Column>
+                  <Column field="amount" header="Amount" body={amountBodyTemplate} sortable></Column>
+                  <Column field="status" header="Status" body={statusOrderBodyTemplate} sortable></Column>
+                  <Column headerStyle={{ width: '4rem' }} body={searchBodyTemplate}></Column>
+              </DataTable> */}
+          </div>
+      );
+  };
+
       return (
           <div>
                     <Toast ref={toast} />
                     <Toolbar start={renderHeader} end={rightToolbarTemplate}></Toolbar>
-                    <DataTable value={products} lazy dataKey="id" paginator rowExpansionTemplate={rowExpansionTemplate}   onRowExpand={onRowExpand} 
+                    <DataTable value={products} lazy dataKey="id" paginator rowExpansionTemplate={rowExpansionTemplate}
                             first={lazyState.first} rows={lazyState.rows} totalRecords={totalRecords} onPage={onPage} removableSort 
                             onSort={onSort} sortField={lazyState.sortField} sortOrder={lazyState.sortOrder} rowClassName="" metaKeySelection={false}
                             loading={loading} tableStyle={{ maxWidth: '100vw' }} selectionMode="multiple"  showSelectAll={false}
                             selection={selectedProducts} onSelectionChange={onSelectionChange} rowsPerPageOptions={[10, 25, 50]}>
-                              {(appUser.authorities.has("PRODUCTS_UPDATE") || appUser.authorities.has("ADMIN")) && 
-                                <Column
-                                  field="edit"
-                                  body={(rowData) => (
-                                  <div className=" "onClick={() => handleEdit(rowData)}>
-                                        <i className="pi pi-id-card" style={{ cursor: 'pointer', fontSize: '1.3rem'}} onClick={() => handleEdit(rowData)} /> 
-                                  </div>
-                                  )}
-                                />
-                              }
-                            <Column field="name" header="Name" sortable/>
-                            <Column field="email" header="Email" sortable/>
-                            <Column field="telephone" header="Telephone" sortable/>
-                            <Column field="originCountry" header="Origin Country" sortable/>
-  
-                    </DataTable>
+                            <Column expander={true} style={{ width: '5rem' }} />
+                            <Column field="brandName" header="Brand" sortable/>
+                            <Column field="productName" header="Product Name" sortable/>
+                            <Column field="productCode" header="Product Code" sortable/>
+                            <Column field="standardPrice" header="Standard Price" sortable/>
+                            <Column field="productDetails" header="Product Details" style={{ minWidth: '20rem' }}  sortable/>
+                    </DataTable>   
     <Dialog visible={productDialog} style={{ width: '75vw' }} breakpoints={{ '960px': '75vw', '641px': '90vw' }} header="Product" modal className="p-fluid" footer={productDialogFooter} onHide={hideDialog}>
     <Toast ref={dialogToast} />
     {editOrCreateProgress &&  
@@ -471,212 +622,198 @@ export default function ProductTable() {
       </div>
     }
     {!editOrCreateProgress &&
-        <TabView>
-          <TabPanel header="Details">
+    <>
+            <div className="field ml-4 mr-4 w-6">
+              <label htmlFor="brand" className="font-bold">
+                Brand*
+              </label>
+              <AutoComplete field="name" value={selectedBrand} suggestions={filteredBrands} 
+                    completeMethod={searchBrand} onChange={onBrandAutocompleteChange} 
+                    placeholder="Enter Existing Brand" showEmptyMessage={true} forceSelection/>
+            </div>
+
           <div className="field ml-4 mr-4">
-              <label htmlFor="name" className="font-bold">
-                Name*
+              <label htmlFor="productName" className="font-bold">
+                Product Name*
               </label>
               <InputText
-                id="name"
-                value={product.name}
-                onChange={(e) => onInputChange(e, 'name')}
+                id="productName"
+                value={product.productName}
+                onChange={(e) => onInputChange(e, 'productName')}
                 required
                 autoFocus
-                className={{ 'p-invalid': (submitted && !product.name) || (submitted && product.name && product.name.length > 256 ) }}
+                className={{ 'p-invalid': (submitted && !product.productName) || (submitted && product.productName && product.productName.length > 256 ) }}
               />
-              {submitted && !product.name && <small className="p-error">Name is required.</small>}
-              {submitted && product.name && product.name.length > 256 && (
-                <small className="p-error">Name is too long : max 256 char.</small>
+              {submitted && !product.productName && <small className="p-error">Product Name is required.</small>}
+              {submitted && product.productName && product.productName.length > 256 && (
+                <small className="p-error">Product Name is too long : max 256 char.</small>
               )}
             </div>
           
             <div className="field ml-4 mr-4">
-              <label htmlFor="email" className="font-bold">
-                Email
+              <label htmlFor="productCode" className="font-bold">
+                Product Code*
               </label>
               <InputText
-                id="email"
-                value={product.email}
-                onChange={(e) => onInputChange(e, 'email')}
-                className={{ 'p-invalid': (submitted && product.email && product.email.length > 250) || (submitted && product.email && !emailPattern.test(product.email))}}
+                id="productCode"
+                value={product.productCode}
+                onChange={(e) => onInputChange(e, 'productCode')}
+                required
+                className={{
+                  'p-invalid': (submitted && !product.productCode) || (submitted && product.productCode && product.productCode.length > 256)
+                }}
               />
-              {submitted && product.email && product.email.length > 250 && (
-                <small className="p-error">Email is too long : max 250 char.</small>
+              {submitted && !product.productCode && <small className="p-error">Product Code is required.</small>}
+              {submitted && product.productCode && product.productCode.length > 256 && (
+                <small className="p-error">Product Code is too long: maximum 256 characters.</small>
               )}
-            {submitted && product.email && !emailPattern.test(product.email) && <small className="p-error">Email is invalid.</small>}
             </div>
   
             <div className="field ml-4 mr-4">
-              <label htmlFor="telephone" className="font-bold">
-                Phone
-              </label>
-              <InputText
-                id="telephone"
-                value={product.telephone}
-                onChange={(e) => onInputChange(e, 'telephone')}
-                className={{ 'p-invalid':(submitted && product.telephone && product.telephone.length > 20) || submitted && product.telephone && !phonePattern.test(product.telephone)}}
-              />
-              {submitted && product.telephone && product.telephone.length > 20 && (
-                <small className="p-error">Phone is too long : max 20 char.</small>
-              )}
-              {submitted && product.telephone && !phonePattern.test(product.telephone) && <small className="p-error">Phone is invalid.</small>}
-            </div>
-  
+                <label htmlFor="standardPrice" className="font-bold">
+                  Standard Price*
+                </label>
+                <InputNumber inputId="currency-us" 
+                              value={product.standardPrice} 
+                              onChange={(e) => onInputChange(e, 'standardPrice')} 
+                              mode="currency" 
+                              currency="USD" 
+                              locale="en-US"  
+                              className={{
+                                'p-invalid': (submitted && !product.standardPrice) || (submitted && product.standardPrice && isNaN(product.standardPrice))
+                              }}
+                />
+                {submitted && !product.standardPrice && <small className="p-error">Standard Price is required.</small>}
+                {submitted && product.standardPrice && product.standardPrice < 0 && (
+                  <small className="p-error">Standard Price must more than 0</small>
+                )}
+              </div>
             <div className="field ml-4 mr-4">
-              <label htmlFor="country" className="font-bold">
-                Origin Country
+              <label htmlFor="productSpecs" className="font-bold mr-4">
+                Product Specifications (unique fields only)
               </label>
-              <Dropdown value={selectedCountry} onChange={handleChangeCountry} options={countries} optionLabel="name" 
-                      placeholder="Choose Origin" className="w-full md:w-14rem" />
-            </div>
-  
-            <div className="field ml-4 mr-4">
-              <label htmlFor="description" className="font-bold">
-                Description
-              </label>
-              <InputTextarea
-                id="description"
-                value={product.description}
-                onChange={(e) => onInputChange(e, 'description')}
-                className={{ 'p-invalid': (submitted && product.description && product.description.length > 1000 )}}
-                rows={5} cols={30}
-              />
-              {submitted && product.description && product.description.length > 1000 && (
-                <small className="p-error">Description is too long : max 1000 char.</small>
-              )}
-            </div>
-          </TabPanel>
-          <TabPanel header="Contact Persons">
-            {addContactPerson && 
-                product.contactPersons.map((cp, index) => {
-                  return  (
-                  <div className='card' key={cp.tempId}> 
-                    <div className="field grid align-items-center justify-content-center">
-                        <div className="col-11 mb-5">
-                            <i className="pi pi-user mr-4"></i>
-                            <b>Contact Person {index + 1} Data</b>
-                        </div>
-                        <div className="col-1 mb-5">
-                          <Button icon="pi pi-times" rounded outlined severity="danger" aria-label="Cancel" onClick={(e) => onDeleteContactPerson(index)} />
-                        </div>
-                              <div className="col-3"></div>
-                              <div className="col-6">
-                                    <div className="field">
-                                    <label htmlFor="name" className="font-bold">
-                                      Name*
-                                    </label>
-                                    <InputText
-                                      id="name"
-                                      value={cp.name}
-                                      onChange={(e) => onInputCPChange(index, 'name', e.target.value)}
-                                      required
-                                      className={{ 'p-invalid': (submitted && !cp.name ) || (submitted && cp.name && cp.name.length > 250 )}}
-                                    />
-                                    {submitted && !cp.name && <small className="p-error">Name is required.</small>}
-                                    {submitted && cp.name && cp.name.length > 250 && (
-                                      <small className="p-error">Name is too long : max 250 char.</small>
-                                    )}
-                                  </div>
-                            </div> 
-                            <div className="col-3"></div>
-                            <div className="col-3"></div>
-                            <div className="col-6">
-                              <div className="field">
-                                <label htmlFor="email" className="font-bold">
-                                  Email
-                                </label>
-                                <InputText
-                                  id="email"
-                                  value={cp.email}
-                                  onChange={(e) => onInputCPChange(index, 'email', e.target.value)}
-                                  className={{ 'p-invalid': (submitted && cp.email && cp.email.length > 250 )}}
-                                />
-                                {submitted && cp.email && cp.email.length > 250 && (
-                                  <small className="p-error">Email is too long : max 250 char.</small>
-                                )}
-                              </div>
-                            </div> 
-                            <div className="col-3"></div>
-                            <div className="col-3"></div>
-                            <div className="col-6">
-                              <div className="field">
-                                <label htmlFor="telephoneNumber" className="font-bold">
-                                  Telephone
-                                </label>
-                                <InputText
-                                  id="telephoneNumber"
-                                  value={cp.telephoneNumber}
-                                  onChange={(e) => onInputCPChange(index, 'telephoneNumber', e.target.value)}
-                                  className={{ 'p-invalid': (submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 )}}
-                                />
-                                {submitted && cp.telephoneNumber && cp.telephoneNumber.length > 250 && (
-                                  <small className="p-error">Phone Number is too long : max 250 char.</small>
-                                )}
-                              </div>
-                            </div> 
-                            <div className="col-3"></div>
-                            <div className="col-3"></div>
-                            <div className="col-6">
-                              <div className="field">
-                                <label htmlFor="mobilePhoneNumber" className="font-bold">
-                                  Mobile Number
-                                </label>
-                                <InputText
-                                  id="mobilePhoneNumber"
-                                  value={cp.mobilePhoneNumber}
-                                  onChange={(e) => onInputCPChange(index, 'mobilePhoneNumber', e.target.value)}
-                                  className={{ 'p-invalid': (submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 )}}
-                                />
-                                {submitted && cp.mobilePhoneNumber && cp.mobilePhoneNumber.length > 250 && (
-                                  <small className="p-error">Phone Number is too long : max 250 char.</small>
-                                )}
-                              </div>
-                            </div> 
-                            <div className="col-3"></div>
-                            <div className="col-3"></div>
-                            <div className="col-6">
-                              <span className="font-bold">Status: </span>
-                              <div className="field align-content-center justify-content-center text-center">
-                                <ToggleButton onLabel="Active" offLabel="Inactive" checked={cp.status} onChange={(e) => handleToggleButton(e, index)} className="w-15rem h-3rem" />
-                              </div>
-                            </div> 
-                            <div className="col-3"></div>
+              {Object.keys(productSpecsForm).map((id) => {
+                return (<div key={id} className='grid align-content-center justify-content-center'>
+                    <div className='col-5'>
+                      <InputText
+                        id={"productSpecsKey" + id}
+                        value={productSpecsForm[id][0]}
+                        placeholder='Field Name'
+                        onChange={(e) => onSpecChange(e, id, 'key')}
+                        className={{
+                          'p-invalid': (submitted && productSpecsForm[id][0] && productSpecsForm[id][0] > 256)
+                        }}
+                      /> 
+                      {submitted && !productSpecsForm[id][0] && <small className="p-error">Product Spec is required.</small>}
+                      {submitted && productSpecsForm[id][0] && productSpecsForm[id][0] > 256 && (
+                        <small className="p-error">Product Spec is too long: maximum 256 characters.</small>
+                      )}
                     </div>
-                  </div>);
-                })
-          }
-          <div className='card'> 
-                    <div className="field grid align-items-center justify-content-center">
-                        <div className="col-6">
-                            <i className="pi pi-user mr-4"></i>
-                            <b>Contact Person</b>
-                        </div>
-                        <div className="col-3">
-                            <Button label="Add Contact Person" icon="pi pi-plus" outlined onClick={handleAddPerson} />
-                        </div>
+                    <div className='col-5'>
+                      <InputText
+                        id={"productSpecsValue" + id}
+                        value={productSpecsForm[id][1]}
+                        placeholder='Value'
+                        onChange={(e) => onSpecChange(e, id, 'value')}
+                        className={{
+                          'p-invalid': (submitted && productSpecsForm[id][1] && productSpecsForm[id][1] > 256)
+                        }}
+                      />
+                      {submitted && productSpecsForm[id][1] && (productSpecsForm[id][1].length > 256) && (
+                        <small className="p-error">Product Specification Field is too long : max 256 char.</small>
+                      )}
                     </div>
-            </div> 
-          </TabPanel>
-          <TabPanel header="Brands List">
-                <DataTable value={product.brands} dataKey="tempId" tableStyle={{ width: '35vw' }}>
-                    <Column field="name" header="Brand Name"> </Column>
-                    <Column body={actionBodyTemplate} style={{width:"5rem"}}> </Column>
-                </DataTable> 
-                <div className="col-6">
-                          <div className="p-inputgroup">
-                              <InputText
-                              id="brand"
-                              value={tempBrand.name}
-                              placeholder="Enter Brand (max.256)"
-                              onChange={(e) => onBrandChange(e)}
-                              className={{ 'p-invalid': (brandSubmitted && tempBrand.name.length <= 0) || (brandSubmitted && tempBrand.name.length > 256 ) }}
-                              />
-                              <Button label="Add Brand" icon="pi pi-plus" onClick={handleAddBrand}/>
-                          </div>
-                      </div>
-          </TabPanel>
-      </TabView>
+                    <div className='col-2 text-center justify-content-center align-content-center'>
+                      <Button icon="pi pi-times" onClick={e => handleSpecDelete(id)} outlined severity='danger' className='w-5'/>
+                    </div>
+                  </div>)
+              })
+              }
+              <div className='flex text-center justify-content-center align-content-center mt-4 mb-4'>
+                <Button label="Add Product Specification" icon="pi pi-plus" onClick={handleAddSpec} className='w-5'/>
+              </div>
+            </div>
+            <div className="field ml-4 mr-4">
+                <label htmlFor="productDetails" className="font-bold">
+                  Product Details
+                </label>
+                <InputTextarea
+                  id="productDetails"
+                  value={product.productDetails}
+                  onChange={(e) => onInputChange(e, 'productDetails')}
+                  required
+                  className={{
+                    'p-invalid': (submitted && product.productDetails && product.productDetails.length > 1000)
+                  }}
+                />
+                {submitted && product.productDetails && product.productDetails.length > 1000 && (
+                  <small className="p-error">Product Details is too long: maximum 1000 characters.</small>
+                )}
+              </div>
+              <div className="field ml-4 mr-4">
+              <label htmlFor="warehouseQuantity" className="font-bold mr-4">
+                Quantity in Warehouse(s)
+              </label>
+              {Object.keys(warehouseQuantityForm).map((id) => {
+                return (<div key={id} className='grid align-content-center justify-content-center'>
+                    <div className='col-5'>
+                      <Dropdown value={warehouseQuantityForm[id][0]} onChange={(e) => onWarehouseQuantityChange(e, id, 'key')} options={warehouses} optionLabel="name" 
+                          placeholder="Select Warehouse" className="w-full" id={"quantitySpecsKey" + id} />
+                    </div>
+                    <div className='col-5'>
+                      <InputNumber
+                        id={"quantitySpecsValue" + id}
+                        value={warehouseQuantityForm[id][1]}
+                        placeholder='Quantity'
+                        onChange={(e) => onWarehouseQuantityChange(e, id, 'value')}
+                        className={{
+                         // 'p-invalid': submitted && productSpecsForm[id][1] && (productSpecsForm[id][1] < 0)
+                        }}
+                        min={0}
+                      />
+
+                    </div>
+                    <div className='col-2 text-center justify-content-center align-content-center'>
+                      <Button icon="pi pi-times" onClick={e => handleWarehouseQuantityDelete(id)} outlined severity='danger' className='w-5'/>
+                    </div>
+                  </div>)
+              })
+              }
+              <div className='flex text-center justify-content-center align-content-center mt-4 mb-4'>
+                <Button label="Add Warehouse Entry" icon="pi pi-plus" onClick={handleAddWarehouseQuantity} className='w-5'/>
+              </div>
+              </div>
+              <br></br>
+              <h5 className='ml-4 font-bold'>Most Recent Purchases</h5>
+              <span className='ml-4'>*Total quantity must be equal or greater than current stock</span>
+              <div className='card'>  
+                <div className='flex text-center justify-content-center align-content-center mt-4 mb-4'>
+                <div className="flex p-inputgroup col-10">
+                    <AutoComplete
+                    id="purchaseRefNo"
+                    field="refNo"
+                    value={purchaseTemp}
+                    suggestions={filteredPurchasesByRefNo} 
+                    completeMethod={searchPurchasesByRefNo}
+                    placeholder="Enter Purchase Reference Number"
+                    onChange={onChangePurchaseRefNo} 
+                    //showEmptyMessage={true}
+                    //className={{ 'p-invalid': (brandSubmitted && tempBrand.name.length <= 0) || (brandSubmitted && tempBrand.name.length > 256 ) }}
+                    />
+                    <Button label="Add Purchase Document" icon="pi pi-plus" onClick={handleAddPurchaseDocument}/>
+                </div>
+                </div>
+                {purchaseDocumentsForm.map(pd => {
+                                            return (
+                                              <div className="field" key={tempId}>
+                                              </div>
+                                            );
+                                          })
+                }
+
+              </div>
+
+      </>
       }
   </Dialog>
   

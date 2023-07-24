@@ -15,15 +15,22 @@ const AppMenu = () => {
         },
         */
         {
-            label: 'ERP Functions',
+            label: 'External Functions',
             items: [
                 { label: 'Customer Management', icon: 'pi pi-fw pi-id-card', to: '/customers' },
                 { label: 'Supplier Management', icon: 'pi pi-fw pi-check-square', to: '/suppliers' },
+               // { label: 'Sales Administration', icon: 'pi pi-fw pi-list', to: '/uikit/invalidstate' },
+               // { label: 'Finance', icon: 'pi pi-fw pi-chart-bar', to: '/uikit/invalidstate' },
+                { label: 'Contact Person View', icon: 'pi pi-fw pi-bookmark', to: '/contactpersons' }
+            ]
+        },
+                {
+            label: 'Internal Functions',
+            items: [
                 { label: 'Brand Portfolio', icon: 'pi pi-fw pi-bookmark', to: '/brand' },
                 { label: 'Inventory Management', icon: 'pi pi-fw pi-table', to: '/inventory' },
                // { label: 'Sales Administration', icon: 'pi pi-fw pi-list', to: '/uikit/invalidstate' },
                // { label: 'Finance', icon: 'pi pi-fw pi-chart-bar', to: '/uikit/invalidstate' },
-                { label: 'Contact Person View', icon: 'pi pi-fw pi-bookmark', to: '/contactpersons' }
             ]
         },
         appUser.authorities.has("ADMIN") && {

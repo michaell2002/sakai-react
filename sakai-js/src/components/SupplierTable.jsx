@@ -39,7 +39,7 @@ export default function SupplierTable() {
   const [selectedFilter, setFilter] = useState({ name: 'All (complete words only)', code: 'all' });
   const filters = [
     { name: 'All (complete words only)', code: 'all' },
-    { name: 'Name', code: 'name ' },
+    { name: 'Name', code: 'name' },
     { name: 'Email', code: 'email' },
     { name: 'Telephone', code: 'telephone' },
     { name: 'Origin Country', code: 'originCountry' }
@@ -62,8 +62,8 @@ export default function SupplierTable() {
     contactPersons : [],
     //brands : []
 };
-  const toast = useRef({});
-  const dialogToast = useRef({});
+  const toast = useRef(null);
+  const dialogToast = useRef(null);
   const [deleteProgress, setDeleteProgress] = useState(false);
   const [editOrCreateProgress, setEditOrCreateProgress] = useState(false);
   const [supplier, setSupplier] = useState({...emptySupplier});
@@ -130,9 +130,11 @@ export default function SupplierTable() {
     const handleChangeCountry = (e) => {
       setSelectedCountry(prev => e.target.value);
       const _country = (e.target) ? e.target.value.name : '';
-      const _supplier = JSON.parse(JSON.stringify(supplier));
-      _supplier.originCountry = _country;
-      setSupplier(prev => _supplier);
+      setSupplier(prev => {
+        const _supplier = JSON.parse(JSON.stringify(prev));
+        _supplier.originCountry = _country;
+        return _supplier;
+      });
     }
     const updateSupplierReset = () => {
       setEditOrCreateProgress(prev => false);
@@ -324,7 +326,7 @@ export default function SupplierTable() {
         if (e.key === 'Enter') {
           // Perform the action you want to execute on Enter key press
           if (searchValue.length < 4 && selectedFilter.code == "all") {
-            toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 });
+            toast.current != null ? toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 }) : "";
           }
           setSearchValueToPass(prev => searchValue);
         } 
@@ -363,13 +365,13 @@ export default function SupplierTable() {
         {(appUser.authorities.has("SUPPLIERS_READ") || appUser.authorities.has("ADMIN")) &&
             <span className="p-input-icon-left">
                 <div className="flex flex-row gap-2">
-                    <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Suppliers" style={{width:"30vw"}} />
+                    <InputText type="search" value={searchValue} onKeyDown={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Suppliers" style={{width:"30vw"}} />
                     <Dropdown value={selectedFilter} onChange={(e) => setFilter(prev => e.value)} options={filters} optionLabel="name" 
                         placeholder="Select Filter" className="w-full md:w-14rem" />
                     <Button onClick={e => {
                       setSearchValueToPass(prev => searchValue);
                       if (searchValue.length < 4 && selectedFilter.code == "all") {
-                        toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 });
+                        toast.current != null ? toast.current.show({ severity: 'warn', summary: 'Info', detail: 'Words <= 3 char. would not activate "All" filter', life: 3000 }) : "";
                       }
                     }} icon="pi pi-search" rounded outlined />
                 </div>
@@ -395,7 +397,6 @@ export default function SupplierTable() {
 const handleToggleButton = (e, tId) => {
   setSupplier((prev) => {
     const _supplier =  JSON.parse(JSON.stringify(prev));
-    console.log("B4")
     _supplier.contactPersons = _supplier.contactPersons.map(cp => {
                                                                 if (cp.tempId == tId) {
                                                                   cp['status'] = !cp['status'];
@@ -404,7 +405,6 @@ const handleToggleButton = (e, tId) => {
                                                             });
     return _supplier;
   });
-  console.log("After")
 }
     const onInputCPChange = (tempId, property, value) => {
       setSupplier((prev) => {

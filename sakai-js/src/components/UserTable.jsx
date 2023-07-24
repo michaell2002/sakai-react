@@ -32,6 +32,7 @@ export default function UserTable() {
     id : null,
     username: "",
     password: undefined,
+    confirmPassword : undefined,
     enabled: true,
     authorities : []
 };
@@ -113,7 +114,7 @@ export default function UserTable() {
           return {...a, selected : e.checked};
         }
         return a;
-      })
+      });
       setTables(prev => _tables);
 
     };
@@ -122,7 +123,11 @@ export default function UserTable() {
               return false;
             } else if (submitted && (user.enabled == undefined)) {
               return false;
-            } 
+            } else if (user.id && (user.password != user.confirmPassword)) {
+              return false;
+            } else if (user.password && (user.password.length < 5 || user.password.length > 256)) {
+              return false;
+            }
             return true;
           };
     const saveUser = () => {
@@ -142,20 +147,28 @@ export default function UserTable() {
                 setEditUserProgress(prev => true);
                 const index = findIndexById(user.id);
                 updateUser(mappedUser, saveUserController.current, appUser.tokenValue).then(res => {
-                    toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'User Updated', life: 3000 });
+                    toast.current != null ? toast.current.show({ severity: 'success', summary: 'Successful', detail: 'User Updated', life: 3000 }) : "";
                 }).catch(error => {
-                    toast.current?.show({ severity: 'error', summary: 'Error', detail: "Unable to update user: " + error.message, life: 3000 });
+                    toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Unable to update user: " + error.message, life: 3000 }) : "";
                 }).finally(() => {
-                    setEditUserProgress(prev => false);
-                    setUserDialog(prev => false);
-                    setEditUserDialog(prev => false);
-                    loadLazyData();
+                    if (appUser.username == mappedUser.username) {
+                      toast != null ? toast.current.show({ severity: 'info', summary: 'Logging Out', detail: "Logging you out ", life: 3000 }) : "";
+                      setTimeout(() => {
+                        localStorage.clear();
+                        updateAppUser(null);
+                      }, 3000)
+                    } else {
+                      setEditUserProgress(prev => false);
+                      setUserDialog(prev => false);
+                      setEditUserDialog(prev => false);
+                      loadLazyData();
+                    }
                 });
                 setSelectedUsers(prev => []);
                 const _emptyUser = {...emptyUser}
                 setUser(prev => _emptyUser);
-            } else if (user.password && user.password.length > 5 && user.username.length < 256) {
-                 setNewUserProgress(prev => true);
+            } else {
+                setNewUserProgress(prev => true);
                 createUser(mappedUser, saveUserController.current, appUser.tokenValue).then(obj => {
                     toast.current.show({ severity: 'success', summary: 'Successful', detail: 'User Created', life: 3000 });
                 }).catch(error => {
@@ -166,7 +179,9 @@ export default function UserTable() {
                     setEditUserDialog(prev => false);
                     loadLazyData();
                 }); 
-           }
+           } 
+        } else {
+          dialogToast.current.show({ severity: 'error', summary: 'Error', detail: "Invalid Field(s)", life: 3000 });
         }
     };
 
@@ -309,7 +324,7 @@ export default function UserTable() {
         return ( <>
             <span className="p-input-icon-left">
                 <div className="flex flex-row gap-2">
-                    <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Users" style={{width:"30vw"}} />
+                    <InputText type="search" value={searchValue} onKeyDown={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Username" style={{width:"30vw"}} />
                     <Button onClick={e => {
                       setSearchValueToPass(prev => searchValue);
                       /*
@@ -400,17 +415,33 @@ export default function UserTable() {
                             <label htmlFor="password" className="font-bold">
                               New Password
                             </label>
-                            <div className="field align-content-right justify-content-right text-center">
+                            <div className="field align-content-right justify-content-right">
                             {!editPassword && 
                               <Button label="Reset Password" className='w-12rem h-3rem'icon="pi pi-check" outlined onClick={e => setEditPassword(prev => true)}/> }
                             {editPassword &&
-                            <Password
-                              id="password"
-                              value={user.password}
-                              onChange={(e) => onInputChange(e, 'password')}
+                            <>
+                              <Password
+                                id="password"
+                                value={user.password}
+                                onChange={(e) => onInputChange(e, 'password')}
+                                toggleMask
+                                className={{ 'p-invalid': (submitted && user.password && user.password.length < 5) || (submitted && user.password && user.password.length > 256 ) 
+                                                || (submitted && (user.confirmPassword != user.password))}}
+                              />
+                              <br></br>
+                              <label htmlFor="confirmPassword" className="font-bold">
+                                Confirm Password
+                               </label>
+                              <Password
+                              id="confirmPassword"
+                              value={user.confirmPassword}
+                              onChange={(e) => onInputChange(e, 'confirmPassword')}
                               toggleMask
-                              className={{ 'p-invalid': (submitted && user.password && user.password.length < 5) || (submitted && user.password && user.password.length > 256 )}}
+                              className={{ 'p-invalid': (submitted && user.confirmPassword && user.confirmPassword.length < 5) || (submitted && user.confirmPassword && user.confirmPassword.length > 256 ) 
+                                                  || (submitted && (user.confirmPassword != user.password))}}
                             />
+                            <br></br>
+                           </>
                             
                             }
                             {submitted && user.password && user.password.length > 256 && (
@@ -418,6 +449,9 @@ export default function UserTable() {
                             )}
                             {submitted && user.password && user.password.length < 5 && (
                               <small className="p-error">Password is too short (valid : 5-256 char.).</small>
+                            )}
+                            {submitted && user.password && user.confirmPassword && (user.password != user.confirmPassword) && (
+                              <small className="p-error">Password(s) do not match</small>
                             )}
                             </div>
                           </div>
@@ -490,6 +524,7 @@ export default function UserTable() {
                               value={user.password}
                               required
                               onChange={(e) => onInputChange(e, 'password')}
+                              toggleMask
                               className={{ 'p-invalid': (submitted && user.password && user.password.length < 5) || (submitted && user.password && user.password.length > 256 )}}
                             />
                             {submitted && user.password && user.password.length > 256 && (

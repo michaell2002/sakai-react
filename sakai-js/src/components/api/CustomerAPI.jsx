@@ -11,7 +11,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(lazyState),
         signal : controller.signal
       })
@@ -21,7 +21,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
           } else {
-            throw new Error(`Failed to fetch clients: ${response.status}`);
+            throw new Error(`Failed to fetch customers: ${response.status}`);
           }
         }).catch(error => {
           throw error;
@@ -35,7 +35,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(client),
         signal: saveCustomerController.signal
       })
@@ -43,9 +43,11 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
+          } else if (response.status == 409) {
+            throw new Error("Customer Name already exists");
           }
           else {
-            throw new Error(`Failed to create clients: ${response.status}`);
+            throw new Error(`Failed to create customers: ${response.status}`);
           }
         }).catch(error => {
           throw error;
@@ -58,7 +60,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(client),
         signal: saveCustomerController.signal
       })
@@ -66,9 +68,11 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
+          } else if (response.status == 409) {
+            throw new Error("Customer Name already exists");
           }
           else {
-            throw new Error(`Failed to update clients: ${response.status}`);
+            throw new Error(`Failed to update customers: ${response.status}`);
           }
         }).catch(error => {
           throw error;
@@ -82,7 +86,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(selectedCustomersId),
         signal: deleteClientsController.signal
       })
@@ -93,7 +97,7 @@ export function fetchClients ( lazyState, searchValue, filter, tokenValue) {
           throw new Error("Unauthorized");
         }
         else {
-          throw new Error(`Failed to delete clients: ${response.status}`);
+          throw new Error(`Failed to delete customers: ${response.status}`);
         }
       }).catch(error => {
         throw error;

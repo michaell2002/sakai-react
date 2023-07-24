@@ -21,10 +21,9 @@ const LoginPage = ({updateAppUser, updateForceLogoutVisible, appUser}) => {
     const { layoutConfig } = useContext(LayoutContext);
     const containerClassName = classNames('surface-ground flex align-items-center justify-content-center min-h-screen min-w-screen overflow-hidden', { 'p-input-filled': layoutConfig.inputStyle === 'filled' });
       const handleSignIn = async (username, password) => {
-        console.log("SIGN IN");
         setLoading(prev => true);
         await Login(username, password, updateAppUser).catch(error => {
-          toast.current?.show({ severity: 'error', summary: 'Error', detail: "Unable to Login: " + error.message, life: 3000 });
+          toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Unable to Login: " + error.message, life: 3000 }) :"";
         });
         setLoading(prev => false);
       };

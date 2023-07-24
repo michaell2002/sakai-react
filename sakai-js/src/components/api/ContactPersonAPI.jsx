@@ -11,7 +11,7 @@ export function fetchContactPersons (lazyState, searchValue, filter, tokenValue)
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(lazyState),
         signal : controller.signal
       })
@@ -34,7 +34,7 @@ export function fetchContactPersons (lazyState, searchValue, filter, tokenValue)
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`,
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(contactPerson),
         signal : saveContactPersonController.signal
       })

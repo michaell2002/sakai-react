@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useState, useRef} from 'react';
-
-// Create a co
+import 'primereact/resources/themes/tailwind-light/theme.css';
 import { LayoutProvider } from './layout/context/layoutcontext';
 import Layout from './layout/layout';
 import 'primereact/resources/primereact.css';
@@ -10,7 +9,6 @@ import './styles/layout/layout.scss';
 import './styles/demo/Demos.scss';
 import 'primeicons/primeicons.css';
 //import 'primereact/resources/themes/bootstrap4-light-blue/theme.css';
-import 'primereact/resources/themes/tailwind-light/theme.css';
 import ImageContext from './layout/context/imagecontext';
 import UserContext from './layout/context/usercontext';
 import { fetchCompany } from './components/api/ProfilePanelAPI';
@@ -19,6 +17,8 @@ import { refreshToken, refreshTokenUpdated} from './components/api/UserAPI';
 import { Login } from './components/api/UserAPI';
 import ClearCredentials from './components/api/ClearCredentials';
 import ForceLogout from './ForceLogout';
+import { BrowserRouter, Route, Routes} from 'react-router-dom';
+
 function App() {
   const [contextValue, setContextValue] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -69,7 +69,7 @@ function App() {
   const handleSignIn = async (username, password) => {
     setLoading(prev => true);
     await Login(username, password, updateAppUser).catch(error => {
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: "Unable to Login: " + error.message, life: 3000 });
+      toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Unable to Login: " + error.message, life: 3000 }) : "";
     });
     setLoading(prev => false);
   };
@@ -150,7 +150,16 @@ function App() {
         <LayoutProvider>
           <ForceLogout visible={forceLogoutVisible}></ForceLogout>
           {appUser.username && <Layout></Layout> }
-          {!appUser.username && <LoginPage updateAppUser={updateAppUser} updateForceLogoutVisible={updateForceLogoutVisible} appUser={appUser} handleSignIn={handleSignIn}></LoginPage> }
+          {!appUser.username && 
+            <>
+            <BrowserRouter>
+              <Routes>
+                  <Route path="*" element={<LoginPage updateAppUser={updateAppUser} updateForceLogoutVisible={updateForceLogoutVisible} 
+                        appUser={appUser} handleSignIn={handleSignIn}></LoginPage>} />
+              </Routes>
+            </BrowserRouter>
+            </>
+          }
         </LayoutProvider>
       </ImageContext.Provider>
       </UserContext.Provider>

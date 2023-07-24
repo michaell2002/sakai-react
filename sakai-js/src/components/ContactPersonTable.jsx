@@ -19,7 +19,7 @@ export default function ContactPersonTable() {
   const [selectedFilter, setFilter] = useState({ name: 'All (complete words only)', code: 'all' });
   const filters = [
     { name: 'All (complete words only)', code: 'all' },
-    { name: 'Name', code: 'name ' },
+    { name: 'Name', code: 'name' },
     { name: 'Email', code: 'email' },
     { name: 'Telephone', code: 'telephoneNumber' },
     { name: 'Mobile Number', code: 'mobilePhoneNumber' },
@@ -37,7 +37,7 @@ const emptyContactPerson = {
     status : null,
     entity : "",
   }
-  const toast = useRef({});
+  const toast = useRef(null);
   const dialogToast = useRef({});
   const saveContactPersonController = useRef(new AbortController());
   const [searchValueToPass, setSearchValueToPass] = useState("");
@@ -110,7 +110,7 @@ const emptyContactPerson = {
                 }
                 setLoading(prev => false);
             }).catch(error => {
-                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Failed to load contact person list '  + error.message, life: 3000 }) : "";
                 setLoading(prev => false);
             });
         } else {
@@ -227,7 +227,7 @@ const emptyContactPerson = {
             <>
             <span className="p-input-icon-left">
                 <div className="flex flex-row gap-2">
-                    <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Contact Persons" style={{width:"30vw"}} />
+                    <InputText type="search" value={searchValue} onKeyDown={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Contact Persons" style={{width:"30vw"}} />
                     <Dropdown value={selectedFilter} onChange={(e) => setFilter(prev => e.value)} options={filters} optionLabel="name" 
                         placeholder="Select Filter" className="w-full md:w-14rem" />
                     <Button onClick={e => {

@@ -29,7 +29,7 @@
         const counterWarehouse = useRef(0);
         const phonePattern = /^[+\-\d]+$/;
         const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        const toast = useRef({});
+        const toast = useRef(null);
         const [saveProfileProgress, setSaveProfileProgress] = useState(false);
         const [company, setCompany] = useState({...emptyCompany});
         const [formCompany, setFormCompany] = useState({...emptyCompany});
@@ -158,22 +158,30 @@
                 setFormWarehouses(prev => _formWarehouses);
                 setWarehouseSubmitted(prev => false);
             } else {
-                    dialogToast.current?.show({ severity: 'error', summary: 'Error', detail: 'Invalid Warehouse Name (unique & 0-256 char.)', life: 3000 });
+                    dialogToast.current != null ? dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Invalid Warehouse Name (unique & 0-256 char.)', life: 3000 }) : "";
             }
         };
         useEffect(() => {
             fetchCompany(appUser.tokenValue).then(c => {
-                setCompany(prev => c);
+                if (c != undefined && c != null) {
+                    setCompany(prev => c);
+                } else {
+                    toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Company Fetch Error", life: 3000 }) : "";
+                }
             }).catch(error => {
                 toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
             });
             fetchWarehouses(appUser.tokenValue).then(c => {
-                const mappedArray = [];
-                for (const w of c) {
-                    mappedArray.push({...w, tempId : counterWarehouse.current});
-                    counterWarehouse.current = counterWarehouse.current + 1;
+                if (c != undefined && c != null) {
+                    const mappedArray = [];
+                    for (const w of c) {
+                        mappedArray.push({...w, tempId : counterWarehouse.current});
+                        counterWarehouse.current = counterWarehouse.current + 1;
+                    }
+                    setWarehouses(prev => mappedArray);
+                } else {
+                    toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Warehouses Fetch Error", life: 3000 }) : "";  
                 }
-                setWarehouses(prev => mappedArray);
             }).catch(error => {
                 toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
             });
@@ -220,13 +228,17 @@
             filebeforesend.xhr.setRequestHeader('Authorization', 'Bearer ' + appUser.tokenValue);
         };
 
+        const handleUploadError = (e) => {
+            toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'File Upload Error', life: 3000 }) :"";
+        }
+
         return (
             <>
             {
             appUser.authorities.has("ADMIN") && 
             <>
-            <Toast ref={toast} />
             <OverlayPanel ref={op} showCloseIcon>
+                    <Toast ref={toast} />
                     <>
                     <DataTable  value={mappedCompany} tableStyle={{ width: '40vw', marginBottom:"3vh" }}>
                         <Column field="field" header="Company Profile"> </Column>
@@ -245,9 +257,9 @@
                         <div className='col-3 mb-1'></div>
                         <div className='col-3'> </div>
                         <div className='col-6 text-center align-content-center justify-content-center'>
-                            <FileUpload mode="basic" chooseLabel="Replace Logo" onBeforeSend={addAuthorizationHeader} withCredentials={true}
-                                invalidFileSizeMessageSummary={"Invalid File Size"} invalidFileSizeMessageDetail={"Maximum File Size is 10 MB"}
-                                auto name="file" url={SERVER_PREFIX + "/company/upload"} accept="image/*" maxFileSize={10000000} onUpload={handleUpload}/>
+                            <FileUpload mode="basic" chooseLabel="Replace Logo (< 1 MB)" onBeforeSend={addAuthorizationHeader} 
+                                invalidFileSizeMessageSummary={"Invalid File Size"} invalidFileSizeMessageDetail={"Maximum File Size is 1 MB"} onError={handleUploadError}
+                                auto name="file" url={SERVER_PREFIX + "/company/upload"} accept="image/*" maxFileSize={1000000} onUpload={handleUpload}/>
                         </div>
                         <div className='col-3'></div>
                     </div>

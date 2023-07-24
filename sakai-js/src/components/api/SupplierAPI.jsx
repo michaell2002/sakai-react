@@ -11,7 +11,7 @@ import SERVER_PREFIX from '../Domain';
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokenValue}`,
           },
-          credentials: 'include',
+          //credentials: 'include',
           body: JSON.stringify(lazyState),
           signal : controller.signal
         })
@@ -37,7 +37,7 @@ import SERVER_PREFIX from '../Domain';
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(supplier),
         signal : saveSupplierController.signal
       })
@@ -45,6 +45,8 @@ import SERVER_PREFIX from '../Domain';
         if (response.ok) {
         } else if (response.status == 401 || response.status == 403) {
           throw new Error("Unauthorized");
+        } else if (response.status == 409) {
+          throw new Error("Supplier's name already exists");
         }
         else {
           throw new Error(`Failed to create supplier: ${response.status}`);
@@ -61,7 +63,7 @@ import SERVER_PREFIX from '../Domain';
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(supplier),
         signal : saveSupplierController.signal
       })
@@ -69,6 +71,8 @@ import SERVER_PREFIX from '../Domain';
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
+          } else if (response.status == 409) {
+            throw new Error("Supplier's name already exists");
           }
           else {
             throw new Error(`Failed to update supplier: ${response.status}`);
@@ -84,7 +88,7 @@ import SERVER_PREFIX from '../Domain';
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`,
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(selectedSuppliersId),
         signal : deleteSuppliersController.signal
       })
@@ -93,7 +97,7 @@ import SERVER_PREFIX from '../Domain';
           return response.json();
         } else if (response.status == 401 || response.status == 403) {
           throw new Error("Unauthorized");
-        }
+        } 
         else {
           throw new Error(`Failed to delete supplier: ${response.status}`);
         }

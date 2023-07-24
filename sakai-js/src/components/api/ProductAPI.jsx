@@ -11,7 +11,7 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`,
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(lazyState),
         signal : controller.signal
       })
@@ -37,7 +37,7 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(product),
         signal : saveProductController.signal
       })
@@ -61,7 +61,7 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
           'Authorization': `Bearer ${tokenValue}`,
 
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(product),
         signal : saveProductController.signal
       })
@@ -69,6 +69,8 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
           if (response.ok) {
           } else if (response.status == 401 || response.status == 403) {
             throw new Error("Unauthorized");
+          } else if (response.status == 409) {
+            throw new Error("Product Code already exists");
           }
           else {
             throw new Error(`Failed to update product: ${response.status}`);
@@ -84,7 +86,7 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`,
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(selectedProductsId),
         signal : deleteProductsController.signal
       })
@@ -92,6 +94,8 @@ export function fetchProducts ( lazyState, searchValue, filter, tokenValue) {
         if (response.ok) {
         } else if (response.status == 401 || response.status == 403) {
           throw new Error("Unauthorized");
+        } else if (response.status == 409) {
+          throw new Error("Product Code already exists");
         }
         else {
           throw new Error(`Failed to delete product: ${response.status}`);

@@ -53,14 +53,14 @@ export default function CustomerTable() {
     neighborhood: "",
     district: "",
     regencyCity: "",
-    province: "",
+    province: selectedProvince.name,
     postalCode: "",
     description : "",
     contactPersons : []
 };
 
   const [customer, setCustomer] = useState({...emptyCustomer});
-  const toast = useRef({});
+  const toast = useRef(null);
   const dialogToast = useRef({});
   const [searchValueToPass, setSearchValueToPass] = useState("");
   const [searchValue, setSearchValue] = useState("");
@@ -201,7 +201,7 @@ export default function CustomerTable() {
                 });
             }
         } else {
-          dialogToast.current?.show({ severity: 'error', summary: 'Error', detail: 'Invalid Details: Recheck Main Details and Contact Persons', life: 3000 });
+          dialogToast.current.show({ severity: 'error', summary: 'Error', detail: 'Invalid Details: Recheck Main Details and Contact Persons', life: 3000 });
           setSaveCustomerProgress(prev => false);
         }
     };
@@ -266,9 +266,9 @@ export default function CustomerTable() {
             let _customers = customers.filter((val) => !selectedCustomers.includes(val));
             setCustomers(prev => _customers);
             if (js.deletedAll) {
-              toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Customers Deleted', life: 3000 });
+              toast.current.show({ severity: 'success', summary: 'Successful', detail: 'Customers Deleted', life: 3000 });
             } else {
-              toast.current?.show({ severity: 'warn', summary: 'Warning', detail: 'Customer(s) with associated documents cannot be deleted', life: 3000 });
+              toast.current.show({ severity: 'warn', summary: 'Warning', detail: 'Customer(s) with associated documents cannot be deleted', life: 3000 });
             }
           }).catch(error => {
             toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
@@ -327,11 +327,11 @@ export default function CustomerTable() {
                   setTotalRecords(prev => data.totalRecords);
                   setCustomers(prev => data.customers);
               } else {
-                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Failed to fetch customers", life: 3000 }) : "";
               }
               setLoading(prev => false);
           }).catch(error => {
-              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+              toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Failed to fetch customers " + error.message, life: 3000 }) : "";
               setLoading(prev => false);
           });
       }  else {
@@ -388,7 +388,7 @@ export default function CustomerTable() {
         return ( <>
             <span className="p-input-icon-left">
                 <div className="flex flex-row gap-2">
-                    <InputText type="search" value={searchValue} onKeyPress={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Customers" style={{width:"30vw"}} />
+                    <InputText type="search" value={searchValue} onKeyDown={handleKeyPress} onChange={(e) => setSearchValue(oldS => e.target.value)}  placeholder="Search for Customers" style={{width:"30vw"}} />
                     <Dropdown value={selectedFilter} onChange={handleFilterChange} options={filters} optionLabel="name" 
                         placeholder="Select Filter" className="w-full md:w-14rem" />
                     <Button onClick={e => {
@@ -419,18 +419,22 @@ export default function CustomerTable() {
     const handleClientType = (e) => {
       setClientType(prev => e.target.value);
       const clientType = (e.target) ? e.target.value.name : '';
-      const _customer =  JSON.parse(JSON.stringify(prev));
-      _customer.clientType = clientType;
-      setCustomer(prev => _customer);
+      setCustomer(prev => {
+        const _customer =  JSON.parse(JSON.stringify(prev));
+        _customer.clientType = clientType;
+        return _customer;
+      });
     }
 
     const handleChangeProvince = (e) => {
       setSelectedProvince(prev => e.target.value);
       const _province = (e.target) ? e.target.value.name : '';
-      const _customer =  JSON.parse(JSON.stringify(prev));
-      _customer.province = _province;
-      setCustomer(prev => _customer);
-    }
+      setCustomer(prev => {
+        const _customer =  JSON.parse(JSON.stringify(prev));
+        _customer.province = _province;
+        return _customer;
+      });
+    };
     const handleEdit = (rd) => {
       const _rd = JSON.parse(JSON.stringify(rd));
       const mappedArray = [];
@@ -444,6 +448,11 @@ export default function CustomerTable() {
       for (const province of provinces) {
         if (province.name == _rd.province) {
           setSelectedProvince(prev => province);
+        }
+      }
+      for (const clientT of types) {
+        if (clientT.name == _rd.clientType) {
+          setClientType(prev => clientT);
         }
       }
       setSubmitted(prev => false);
@@ -497,9 +506,9 @@ export default function CustomerTable() {
                             )}
                           />
                           }
-                          <Column field="clientType" header="Client Type" sortable/>
-                          <Column field="groupName" header="Group" sortable />
                           <Column field="name" header="Name" sortable/>
+                          <Column field="groupName" header="Group" sortable />
+                          <Column field="clientType" header="Client Type" sortable/>
                           <Column field="email" header="Email" sortable/>
                           <Column field="phone" header="Phone" sortable/>
                           <Column field="building" header="Building" sortable/>
@@ -539,10 +548,10 @@ export default function CustomerTable() {
       </div>
       <div className="field ml-4 mr-4">
         <label htmlFor="clientType" className="font-bold">
-          Tipe Customer/Client
+          Customer/Client Type
         </label>
         <Dropdown value={clientType} onChange={handleClientType} options={types} optionLabel="name" 
-                placeholder="Pilih Tipe" className="w-full md:w-14rem" />
+                placeholder="Choose Type" className="w-full md:w-14rem" />
       </div>
       <div className="field ml-4 mr-4">
         <label htmlFor="groupName" className="font-bold">

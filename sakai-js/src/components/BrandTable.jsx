@@ -23,6 +23,7 @@ export default function BrandTable() {
     const toast = useRef(null);
     const [brandSubmitted, setBrandSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [tableLoading, setTableLoading] = useState(false);
     const createCustomerController = useRef(new AbortController());
     const deleteCustomerController = useRef(new AbortController());
     const [search, setSearch] = useState("");
@@ -46,14 +47,14 @@ export default function BrandTable() {
                     setBrands(prev => _brands);
                     toast.current?.show({ severity: 'success', summary: 'Success', detail: 'Brand Created', life: 3000 });
             }).catch(error => {
-                toast.current?.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
             }).finally(() =>   {
                 setLoading(prev => false);
                 setBrandSubmitted(prev => false);
             });
         } else {
             setLoading(prev => false);
-            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Invalid Brand Name (unique & 0-256 char.)', life: 3000 });
+            toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Invalid Brand Name (unique & 0-256 char.)', life: 3000 }) :"";
         }
     };
     const handleRemoveBrand = (rowData) => {
@@ -64,11 +65,11 @@ export default function BrandTable() {
             _brands = _brands.filter(w => w.name != rowData.name);
             setBrands(prev => _brands);
             setLoading(prev => false);
-            toast.current?.show({ severity: 'success', summary: 'Success', detail: 'Brand Deleted', life: 3000 });
+            toast.current != null ? toast.current.show({ severity: 'success', summary: 'Success', detail: 'Brand Deleted', life: 3000 }) : "";
         })
         .catch(error => {
             setLoading(prev => false);
-            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Unable to Delete Brand ' + error.message, life: 3000 });
+            toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: 'Unable to Delete Brand ' + error.message, life: 3000 }) : "";
         })
     };
     const handleCancel = (e) => {
@@ -81,7 +82,7 @@ export default function BrandTable() {
     const onSearchChange = (e) => {
         const search = e.target ? e.target.value : "";
         if (search != "" && search != null && search != undefined) {
-            setFilterBrands(prev => brands.filter(b => b.name.includes(search)));
+            setFilterBrands(prev => brands.filter(b => b.name.toLowerCase().includes(search.toLowerCase())));
         } else {
             setFilterBrands(prev => [...brands]);
         }
@@ -127,22 +128,37 @@ export default function BrandTable() {
         )
     }
     useEffect(() => {
+        setTableLoading(prev => true);
         fetchBrands(appUser.tokenValue).then(c => {
-            console.log(c);
-            setBrands(prev => c);
+            if (c != undefined && c != null) {
+                setBrands(prev => c);
+            } else {
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: "Brands fetch error", life: 3000 }) : "";
+            }
+            setTableLoading(prev => false);
+
         }).catch(error => {
-            toast.current?.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 });
+            toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
         });
+        setInterval(() => {
+            fetchBrands(appUser.tokenValue).then(c => {
+                setBrands(prev => c);
+            }).catch(error => {
+                toast.current != null ? toast.current.show({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 }) : "";
+            });
+        }, 300000);
     }, [])
+    
     useEffect(() => {
-        setFilterBrands(prev => brands.filter(b => b.name.includes(search)));
+        setFilterBrands(prev => brands.filter(b => b.name.toLowerCase().includes(search.toLowerCase())));
     }, [brands]);
+    
   return (
     <>
     <Toast ref={toast}/>
     <div>
         <Toolbar start={searchBar} end={addBrandToolBar}/>
-        <DataTable value={filterBrands} dataKey="id" tableStyle={{ width: '40vw' }} paginator rows={10}>
+        <DataTable value={filterBrands} loading={tableLoading} dataKey="id" tableStyle={{ width: '40vw' }} paginator rows={10}>
             <Column field="name" header="Brand Name" > </Column>
             <Column body={actionBodyTemplate} style={{width:"5rem"}}> </Column>
         </DataTable> 

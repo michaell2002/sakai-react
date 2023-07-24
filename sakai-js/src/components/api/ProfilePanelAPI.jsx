@@ -11,7 +11,7 @@ export function fetchCompany(tokenValue) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenValue}`,
       },
-      credentials: 'include',
+      //credentials: 'include',
       signal : controller.signal
     })
         .then((response) => {
@@ -34,7 +34,7 @@ export function fetchCompany(tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(company),
         signal : saveProfileController.signal
       })
@@ -60,7 +60,7 @@ export function fetchCompany(tokenValue) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenValue}`
         },
-        credentials: 'include',
+        //credentials: 'include',
         body: JSON.stringify(warehouses),
         signal : saveProfileController.signal
       })
@@ -89,7 +89,7 @@ export function fetchCompany(tokenValue) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenValue}`
       },
-      credentials: 'include',
+      //credentials: 'include',
       signal : controller.signal
     })
         .then((response) => {
